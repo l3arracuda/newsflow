@@ -67,9 +67,11 @@ class SourceFetchingTest extends TestCase
         $service = app(ArticleDiscoveryService::class);
         $this->assertSame(0, $service->discover($source, true)['created']);
         $this->assertDatabaseCount('articles', 0);
+        $this->assertNull($source->fresh()->last_scanned_at);
         $this->assertSame(1, $service->discover($source)['created']);
         $this->assertSame(1, $service->discover($source)['existing']);
         $this->assertDatabaseCount('articles', 1);
+        $this->assertNotNull($source->fresh()->last_scanned_at);
     }
 
     public function test_detail_fetch_creates_snapshot_once_and_marks_article_fetched(): void

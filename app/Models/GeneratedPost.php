@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class GeneratedPost extends Model
@@ -38,6 +39,11 @@ class GeneratedPost extends Model
     public function publications(): HasMany
     {
         return $this->hasMany(Publication::class);
+    }
+
+    public function latestPublication(): HasOne
+    {
+        return $this->hasOne(Publication::class)->latestOfMany();
     }
 
     public function auditLogs(): MorphMany

@@ -17,7 +17,11 @@ class ArticleDiscoveryService
     public function discover(Source $source, bool $dryRun = false): array
     {
         $result = ['candidates' => 0, 'created' => 0, 'existing' => 0, 'items' => []];
-        foreach ($this->adapters->for($source)->discover($source) as $candidate) {
+        $candidates = $this->adapters->for($source)->discover($source);
+        if (! $dryRun) {
+            $source->forceFill(['last_scanned_at' => now()])->save();
+        }
+        foreach ($candidates as $candidate) {
             $result['candidates']++;
             $lookup = fn () => Article::where('source_id', $source->id)->where(fn ($q) => $q->where('source_url', $candidate->url)->when($candidate->externalId, fn ($q, $id) => $q->orWhere('source_external_id', $id)))->first();
             $article = $lookup();

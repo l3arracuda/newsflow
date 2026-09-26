@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class Article extends Model
@@ -40,9 +41,19 @@ class Article extends Model
         return $this->hasMany(WorkflowRun::class);
     }
 
+    public function latestWorkflowRun(): HasOne
+    {
+        return $this->hasOne(WorkflowRun::class)->latestOfMany();
+    }
+
     public function generatedPosts(): HasMany
     {
         return $this->hasMany(GeneratedPost::class);
+    }
+
+    public function latestGeneratedPost(): HasOne
+    {
+        return $this->hasOne(GeneratedPost::class)->latestOfMany();
     }
 
     public function auditLogs(): MorphMany

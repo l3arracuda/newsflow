@@ -19,11 +19,11 @@ class WorkflowRetrier
             if ($run->status !== WorkflowRunStatus::FAILED) {
                 throw new InvalidArgumentException('Only a failed workflow run can be retried.');
             }
-            $query = $run->steps()->where('status', WorkflowStepStatus::FAILED->value)->orderByDesc('attempt')->orderByDesc('id');
-            if ($stepKey !== null) {
-                $query->where('step_key', $stepKey);
-            }
-            $failedStep = $query->first();
+            $latestByStep = $run->steps()->orderBy('id')->get()->groupBy('step_key')->map(fn ($steps) => $steps->last());
+            $latestByStep = $latestByStep->filter(fn ($step) => $step->status === WorkflowStepStatus::FAILED);
+            $failedStep = $stepKey === null
+                ? $latestByStep->sortByDesc('id')->first()
+                : $latestByStep->get($stepKey);
             if (! $failedStep) {
                 throw new InvalidArgumentException($stepKey === null ? 'No failed step is available to retry.' : "Step [{$stepKey}] is not failed in this run.");
             }
