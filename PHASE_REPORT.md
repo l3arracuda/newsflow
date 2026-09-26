@@ -1,97 +1,83 @@
 # PHASE_REPORT
 
 ## Phase
-Phase 03 — Source Adapter & Article Discovery
+Phase 04 — Workflow Engine, Queue, Retry & Logs
 
 ## Status
 PASS
 
 ## Summary
-- Added a pluggable `NewsSourceAdapter` contract and registry keyed by `sources.adapter`.
-- Implemented the ThaiRath adapter using the listing URL stored in the source record.
-- Added fixture-driven listing/detail HTML parsing, canonical URL normalization, duplicate link removal, source host validation, title/date/external-ID extraction, and bounded article text extraction.
-- Added `news:discover {sourceKey} {--dry-run}` and `news:fetch {articleId}` commands.
-- Added idempotent article discovery protected by existing database unique constraints, and detail snapshots keyed by SHA-256 checksum.
-- Added HTTP timeouts, an identified user agent, one-request-per-second source throttling, bounded retries for timeouts/5xx, and classified failures for 429/4xx/5xx.
-- Added cached robots.txt policy enforcement; disallowed paths stop before the page request. No access controls are bypassed.
-- No AI, image generation, publishing, UI, or migration changes were included.
+- Added a queued, nine-step article workflow: discover, fetch_detail, extract_facts, summarize, rewrite, fact_check, image_prompt, image_generate, awaiting_review.
+- Added processor contract/registry. Detail fetch reuses an existing snapshot; AI/facts/image stages are explicit placeholders only.
+- Added idempotent placeholder GeneratedPost creation for rewrite; retries do not create duplicate versions.
+- Added database row lock plus cache lock to prevent duplicate workflow starts, and queue `WithoutOverlapping` middleware to prevent two jobs processing the same article concurrently.
+- Each step stores status, attempt, timestamps, metadata, and sanitized failure summary. Successful steps are skipped on resume; a failed step is retried as a new attempt, then subsequent steps continue.
+- Added start/retry/status Artisan commands and workflow audit events for start, running, failure, retry, completion, and awaiting-review transition.
+- Queue uses Laravel's configured connection (`QUEUE_CONNECTION`), which can be `sync`, `database`, or `redis` where configured. No real AI, image provider, or publisher integration was added.
 
 ## Files changed
-- `app/News/Adapters/NewsSourceAdapter.php`, `SourceAdapterRegistry.php`
-- `app/News/Adapters/ThaiRath/ThaiRathAdapter.php`, `ThaiRathHtmlParser.php`, `RobotsPolicy.php`
-- `app/News/DTO/ArticleCandidate.php`, `ArticleDocument.php`
-- `app/News/Exceptions/SourceFetchException.php`
-- `app/News/Http/SourceHttpClient.php`
-- `app/News/Services/ArticleDiscoveryService.php`, `ArticleFetchService.php`
-- `app/Console/Commands/DiscoverNews.php`, `FetchNewsArticle.php`
+- `app/Workflows/WorkflowStepProcessor.php`, `WorkflowProcessorRegistry.php`, `WorkflowStepCatalog.php`, `WorkflowEngine.php`, `WorkflowStarter.php`, `WorkflowRetrier.php`, `WorkflowInspector.php`
+- `app/Workflows/Processors/DiscoveredArticleProcessor.php`, `FetchDetailProcessor.php`, `PlaceholderProcessor.php`
+- `app/Jobs/ProcessWorkflowJob.php`
+- `app/Console/Commands/StartArticleWorkflow.php`, `RetryArticleWorkflow.php`, `ShowWorkflowStatus.php`
 - `app/Providers/AppServiceProvider.php`
-- `tests/Feature/SourceFetchingTest.php`
-- `tests/Fixtures/source-fetching/listing.html`, `article.html`
+- `tests/Feature/WorkflowEngineTest.php`
 - This report.
 
 ## Database migrations
-- No schema changes or new migrations.
-- Discovery writes to the Phase 02 `articles` table and uses its unique source URL/external ID constraints.
-- Detail fetch writes a bounded normalized excerpt to `article_snapshots`; checksum uniqueness makes repeat fetches idempotent.
+- No schema changes or new migrations; Phase 02 workflow, step, generated-post, article, and audit tables were reused.
+- Existing unique key `generated_posts(article_id, version)` protects placeholder draft idempotency.
 
 ## Commands run
 ```text
-git switch -c dev/phase-03-source-fetching
-vendor\bin\pint app\News app\Console\Commands app\Providers\AppServiceProvider.php tests\Feature\SourceFetchingTest.php
-vendor\bin\pint --test app\News app\Console\Commands app\Providers\AppServiceProvider.php tests\Feature\SourceFetchingTest.php
-php artisan test --filter=SourceFetchingTest
+git switch -c dev/phase-04-workflow-engine
+vendor\bin\pint app\Workflows app\Jobs app\Console\Commands app\Providers\AppServiceProvider.php tests\Feature\WorkflowEngineTest.php
+vendor\bin\pint --test app\Workflows app\Jobs app\Console\Commands app\Providers\AppServiceProvider.php tests\Feature\WorkflowEngineTest.php
+php artisan test --filter=WorkflowEngineTest
 php artisan test
 ```
 
 ## Tests
 ### Targeted
 ```text
-12 passed (30 assertions)
+4 passed (35 assertions)
 ```
 
 ### Full suite
 ```text
-49 passed (151 assertions)
-```
-
-### Formatting
-```text
-Pint --test passed
+53 passed (186 assertions)
 ```
 
 ## Manual verification
-Live verification is optional and was not run during this implementation. It makes requests to ThaiRath and can fail transparently if the site is unavailable or policy blocks access.
+Use the article ID from the record already fetched in Phase 03. Starting this workflow writes workflow/audit rows and creates a clearly marked placeholder draft; it does not publish anything.
 
-1. Ensure MySQL is running and the Phase 02 migrations/source seed are present.
-2. Preview candidates without writing article records: `php artisan news:discover thairath_society --dry-run`.
-3. If the preview is acceptable, discover idempotently: `php artisan news:discover thairath_society`.
-4. Obtain an internal article ID with `SELECT id, title, source_url, status FROM articles ORDER BY id DESC LIMIT 5;` in phpMyAdmin.
-5. Fetch one article detail and create its snapshot: `php artisan news:fetch <ARTICLE_ID>`.
-6. Verify the article status is `fetched`, its `content_hash` is set, and `article_snapshots` contains the matching checksum. Repeating the fetch should not duplicate a snapshot with the same checksum.
+1. From `D:\CodeX\NewsFlow`, if `QUEUE_CONNECTION` is `database` or `redis`, open a terminal and start the worker: `php artisan queue:work --tries=3 --timeout=60`. Leave it running. If the queue connection is `sync`, no worker is needed.
+2. In another terminal, start the workflow: `php artisan news:workflow:start <ARTICLE_ID>`. Note the workflow run ID printed.
+3. Inspect progress: `php artisan news:workflow:status <RUN_ID>`. Expected end state is run `succeeded`, all nine steps `succeeded`, and the article status `ready_for_review`.
+4. Inspect `generated_posts` in phpMyAdmin. The generated record is a test placeholder, with `metadata.placeholder = true` and `status = draft`; it is not publishable content.
+5. Failure/retry behavior is covered by automated failure-injection tests. For a failed run, retry its first failed step with `php artisan news:workflow:retry <RUN_ID>`, or select it explicitly with `php artisan news:workflow:retry <RUN_ID> --step=summarize`, then inspect again with the status command.
 
 ## Security / data notes
-- Only HTTPS requests to the exact `thairath.co.th` hostnames are permitted by the adapter.
-- Robots policy is checked before listing/detail requests, cached for one hour, and disallowed paths are rejected.
-- CAPTCHA, paywall, authentication, anti-bot, and access controls are not bypassed; HTTP/policy/parse failures are surfaced.
-- The parser stores only normalized article paragraphs (up to 20,000 characters), not page markup, navigation, or full-site copies.
-- No credentials or secrets were added.
+- Errors stored in run/step logs redact common bearer, token, password, secret, and API-key patterns; only sanitized summaries are shown in workflow status.
+- Workflow audit records contain state changes and IDs, not provider credentials.
+- Publishing is not part of this phase; the placeholder post remains in `draft` state.
 
 ## Known limitations
-- ThaiRath HTML may change; parser uses standard anchors, metadata, article/main headings, and paragraph fallbacks, so unsupported markup fails with a controlled parse error.
-- The optional live test can return an upstream error or be disallowed; automated tests use saved fixtures and HTTP fakes only.
-- `news:fetch` fetches one article per invocation; orchestration and scheduled scanning belong to later phases.
+- `extract_facts`, `summarize`, `rewrite`, `fact_check`, `image_prompt`, and `image_generate` are placeholders, not AI or image processing.
+- The workflow can reach the awaiting-review state, but review UI/approval actions are later-phase work.
+- Redis is optional; it requires a running Redis service and corresponding Laravel configuration. Database queue is supported by the existing project configuration.
 
 ## Required user configuration
-- No new keys or migrations are required. Existing ThaiRath Society source configuration must be seeded and active.
-- The configured cache store should be available for shared throttling and robots policy caching in multi-process deployments.
+- For asynchronous runs, configure `QUEUE_CONNECTION=database` (default project option) or `redis`, and run a queue worker.
+- No migration or new secrets are required.
 
 ## Acceptance checklist
-- [x] Adapter contract and registry select by stored adapter key.
-- [x] Fixture listing parsing, URL normalization, filtering, duplicate handling, and metadata extraction.
-- [x] Detail parsing, bounded normalized text, checksum snapshot, and idempotent fetch.
-- [x] Discovery dry-run does not mutate database; repeated discovery does not duplicate records.
-- [x] Timeout and HTTP behavior has bounded retries/classified errors; throttling and robots policy are enforced.
-- [x] Targeted/full tests and Pint pass; no secrets committed; no Phase 04 functionality included.
+- [x] Nine required workflow steps reach awaiting review on happy path.
+- [x] Queue job, queue driver selection, article lock, and overlapping-job protection are present.
+- [x] Step timestamps, statuses, attempts, sanitized errors, and audit transitions are recorded.
+- [x] Failure injection and retry resume only the failed and subsequent steps without duplicate generated records.
+- [x] Start/retry/status commands are available; full suite and Pint pass.
+- [x] No real AI/image/publishing or Phase 05 work included; no secrets committed.
 
 ## ACCEPTANCE GATE
 PASS
