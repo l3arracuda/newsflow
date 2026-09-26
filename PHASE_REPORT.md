@@ -12,6 +12,7 @@ PASS
 - Added admin-only dashboard authorization; public registration is disabled.
 - Added `/health` JSON endpoint reporting application and database status without exposing configuration values.
 - Added hidden-prompt admin creation and environment/MySQL validation Artisan commands.
+- Fixed the admin command to use Laravel command input methods and covered it with a feature test.
 - Added automated auth, access control, registration-disabled, and health checks.
 - No news workflow, crawler, AI, or publishing functionality was introduced.
 
@@ -27,7 +28,7 @@ PASS
 - `0001_01_01_000000_create_users_table.php` — users, password reset tokens, and sessions.
 - `2026_09_26_000001_add_is_admin_to_users_table.php` — admin access flag, default false.
 - Migrations executed by the test suite against in-memory SQLite.
-- A live MySQL migration remains a manual check after local MySQL credentials are configured.
+- Created the local `newsflow` database in XAMPP MySQL and ran all migrations successfully.
 
 ## Commands run
 ```text
@@ -38,6 +39,9 @@ composer install --no-interaction
 npm ci
 npm run build
 php artisan test
+php artisan test --filter=AuthenticationTest
+php artisan newsflow:check-environment
+php artisan migrate --force
 vendor\bin\pint app bootstrap config database routes tests
 vendor\bin\pint --test app bootstrap config database routes tests
 php artisan route:list
@@ -56,7 +60,7 @@ HealthTest: covered within full suite
 ### Full suite
 ```text
 php artisan test
-30 passed (78 assertions)
+31 passed (85 assertions)
 ```
 
 ## Manual verification
@@ -75,7 +79,7 @@ php artisan test
 - Health response exposes statuses only.
 
 ## Known limitations
-- MySQL service connectivity and migrations were not verified because no real MySQL credentials were supplied.
+- Local MySQL connectivity and migrations were verified with the XAMPP defaults; other environments must set their own credentials.
 - Password reset mail uses Laravel's configured local mail transport until configured for deployment.
 
 ## Required user configuration

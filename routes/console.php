@@ -10,21 +10,32 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Artisan::command('newsflow:create-admin', function () {
-    $name = text('Admin name', required: true);
-    $email = text('Admin email', validate: function (string $value): ?string {
-        if (! filter_var($value, FILTER_VALIDATE_EMAIL)) {
-            return 'Enter a valid email address.';
-        }
+    $name = trim((string) $this->ask('Admin name'));
 
-        return User::where('email', $value)->exists() ? 'That email address is already in use.' : null;
-    });
-    $password = password('Admin password (at least 12 characters)', validate: fn (string $value): ?string => strlen($value) >= 12 ? null : 'Use at least 12 characters.');
-    $confirmation = password('Confirm password');
+    while ($name === '') {
+        $this->error('Admin name is required.');
+        $name = trim((string) $this->ask('Admin name'));
+    }
 
-    if ($password !== $confirmation) {
+    $email = trim((string) $this->ask('Admin email'));
+
+    while (! filter_var($email, FILTER_VALIDATE_EMAIL) || User::where('email', $email)->exists()) {
+        $this->error(filter_var($email, FILTER_VALIDATE_EMAIL) ? 'That email address is already in use.' : 'Enter a valid email address.');
+        $email = trim((string) $this->ask('Admin email'));
+    }
+
+    $password = (string) $this->secret('Admin password (at least 12 characters)');
+
+    while (strlen($password) < 12) {
+        $this->error('Use at least 12 characters.');
+        $password = (string) $this->secret('Admin password (at least 12 characters)');
+    }
+
+    $confirmation = (string) $this->secret('Confirm password');
+
+    while ($password !== $confirmation) {
         $this->error('The passwords do not match.');
-
-        return 1;
+        $confirmation = (string) $this->secret('Confirm password');
     }
 
     User::create([
