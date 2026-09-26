@@ -1,100 +1,87 @@
 # PHASE_REPORT
 
 ## Phase
-Phase 01 — Project Bootstrap & Health Baseline
+Phase 02 — Database & Domain Model
 
 ## Status
 PASS
 
 ## Summary
-- Bootstrapped Laravel 12 with Laravel Breeze Blade authentication.
-- Configured Asia/Bangkok timezone and Thai application locale.
-- Added admin-only dashboard authorization; public registration is disabled.
-- Added `/health` JSON endpoint reporting application and database status without exposing configuration values.
-- Added hidden-prompt admin creation and environment/MySQL validation Artisan commands.
-- Fixed the admin command to use Laravel command input methods and covered it with a feature test.
-- Added automated auth, access control, registration-disabled, and health checks.
-- No news workflow, crawler, AI, or publishing functionality was introduced.
+- Added the core NewsFlow schema for sources, articles, snapshots, workflow runs/steps, prompt templates, generated posts/assets, review decisions, publications, and audit logs.
+- Added Eloquent models with typed relations, JSON/date casts, and PHP backed enums for finite statuses.
+- Added DB constraints for source keys, source URL/source ID duplicate prevention, versioned records, workflow attempts, and publication idempotency.
+- Added idempotent ThaiRath Society source seeding.
+- Added tests for migrations, relationships, enum casts, unique constraints, and seeder idempotency.
+- No fetching, AI, publishing, or large UI behavior was implemented.
 
 ## Files changed
-- Laravel application scaffold, configuration, and development assets.
-- Authentication, admin middleware, and dashboard views.
-- Admin flag migration and setup commands.
-- Feature tests for authentication, dashboard access, registration policy, and health.
-- `.env.example`, README, and this report.
-- Prompt Pack documents provided in the repository were preserved.
+- `app/Enums/` — article, workflow, generated post, review, and publication statuses.
+- `app/Models/` — domain models and relations; added review/audit relations to User.
+- `database/migrations/2026_09_26_000002_create_newsflow_domain_tables.php` — domain schema and indexes.
+- `database/seeders/DatabaseSeeder.php` and `SourceSeeder.php` — safe initial source seed.
+- `tests/Feature/DatabaseDomainTest.php` — phase acceptance coverage.
+- This report.
 
 ## Database migrations
-- `0001_01_01_000000_create_users_table.php` — users, password reset tokens, and sessions.
-- `2026_09_26_000001_add_is_admin_to_users_table.php` — admin access flag, default false.
-- Migrations executed by the test suite against in-memory SQLite.
-- Created the local `newsflow` database in XAMPP MySQL and ran all migrations successfully.
+- `2026_09_26_000002_create_newsflow_domain_tables.php` creates all eleven required domain tables.
+- Applied successfully to the local XAMPP MySQL-compatible database.
+- `db:seed` ran twice; exactly one `thairath_society` source remained.
 
 ## Commands run
 ```text
-composer create-project laravel/laravel ^12.0 (temporary scaffold)
-composer require laravel/breeze --dev
-php artisan breeze:install blade --no-interaction
-composer install --no-interaction
-npm ci
-npm run build
-php artisan test
-php artisan test --filter=AuthenticationTest
-php artisan newsflow:check-environment
+git switch -c dev/phase-02-database-domain
+vendor\bin\pint app/Enums app/Models database/migrations database/seeders tests/Feature/DatabaseDomainTest.php
+php artisan test --filter=DatabaseDomainTest
 php artisan migrate --force
-vendor\bin\pint app bootstrap config database routes tests
-vendor\bin\pint --test app bootstrap config database routes tests
-php artisan route:list
-php artisan list --raw
-git check-ignore -v .env
+php artisan db:seed --force
+php artisan db:seed --force
+vendor\bin\pint app/Enums app/Models database/migrations database/seeders tests
+php artisan test
 ```
 
 ## Tests
 ### Targeted
 ```text
-DashboardAccessTest: covered within full suite
-AuthenticationTest: covered within full suite
-HealthTest: covered within full suite
+php artisan test --filter=DatabaseDomainTest
+6 passed (36 assertions)
 ```
 
 ### Full suite
 ```text
 php artisan test
-31 passed (85 assertions)
+37 passed (121 assertions)
 ```
 
 ## Manual verification
-1. Copy `.env.example` to `.env`, set MySQL database name, username, and password, then run `php artisan key:generate`.
-2. Run `composer install`, `npm ci`, and `npm run build`.
-3. Run `php artisan newsflow:check-environment`, then `php artisan migrate`.
-4. Run `php artisan newsflow:create-admin` and provide an admin name, email, and password when prompted.
-5. Run `php artisan serve`, open `/login`, sign in, and confirm `/dashboard` opens.
-6. Sign out and confirm `/dashboard` redirects to `/login`; confirm `/register` returns 404.
-7. Open `/health` and confirm it reports `app: ok` and `database: ok` without secrets.
+1. Run `php artisan migrate` and confirm the domain migration completes.
+2. Run `php artisan db:seed` twice and confirm only one source with key `thairath_society` exists.
+3. In Tinker, create a Source and Article, then verify `Article::source`, snapshots, workflow runs, and generated-post relations.
+4. Verify duplicate `source_id + source_url` inserts are rejected by the database.
+5. Confirm the dashboard and login still work; Phase 02 adds no user-facing workflow screens.
 
 ## Security / data notes
-- `.env` is ignored by Git; the generated local APP_KEY is not included in the repository.
-- `.env.example` contains placeholders only.
-- Admin password is entered through hidden terminal prompts and is hashed by Laravel.
-- Health response exposes statuses only.
+- Source configuration is JSON and the seeded config is empty; no credentials are stored in it.
+- Snapshots retain a normalized excerpt and checksum for audit, not a full-site copy.
+- Article source URLs are limited to 700 characters to keep the composite utf8mb4 unique index within MySQL index limits.
+- Publication idempotency keys are unique; audit actors reference users when applicable and system events may have no user actor.
 
 ## Known limitations
-- Local MySQL connectivity and migrations were verified with the XAMPP defaults; other environments must set their own credentials.
-- Password reset mail uses Laravel's configured local mail transport until configured for deployment.
+- Status values are enforced by PHP enum casts; no database-specific CHECK constraint was added, preserving portability between MySQL and SQLite tests.
+- Snapshot excerpt length is bounded by the database `TEXT` type; fetching and normalization limits belong to Phase 03.
+- No HTTP fetching, AI processing, publishing logic, or review UI is included.
 
 ## Required user configuration
-- Configure local MySQL credentials in `.env` and verify with `php artisan newsflow:check-environment`.
-- Create the first administrator with `php artisan newsflow:create-admin`.
+- Run `php artisan migrate` and `php artisan db:seed` in each environment.
+- Configure the source adapter and database credentials in the appropriate environment; source config must not contain secrets.
 
 ## Acceptance checklist
-- [x] Laravel application boots and routes register.
-- [x] Migrations run in automated tests.
-- [x] Login and logout work; guest dashboard access is blocked.
-- [x] Admin dashboard access works; non-admin access is forbidden.
-- [x] `/health` succeeds when database is available and does not expose secrets.
-- [x] Tests and PHP formatter pass; frontend assets build.
-- [x] No secrets are included in tracked changes.
-- [x] No Phase 02 or news workflow work included.
+- [x] All required domain tables and relationships exist.
+- [x] MySQL migration succeeds.
+- [x] Source/article duplicate URL constraint is enforced.
+- [x] Models cast finite statuses to PHP enums.
+- [x] ThaiRath Society source seed is idempotent.
+- [x] Targeted and full test suites pass; Pint passes.
+- [x] No secrets committed and no Phase 03 functionality included.
 
 ## ACCEPTANCE GATE
 PASS
