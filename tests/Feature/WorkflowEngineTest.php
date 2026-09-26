@@ -18,6 +18,7 @@ use App\Workflows\WorkflowRetrier;
 use App\Workflows\WorkflowStarter;
 use App\Workflows\WorkflowStepCatalog;
 use App\Workflows\WorkflowStepProcessor;
+use Database\Seeders\AiPromptTemplateSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Support\Facades\Queue;
@@ -27,6 +28,12 @@ use Tests\TestCase;
 class WorkflowEngineTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        (new AiPromptTemplateSeeder)->run();
+    }
 
     public function test_happy_path_records_all_steps_and_reaches_awaiting_review(): void
     {
@@ -52,7 +59,7 @@ class WorkflowEngineTest extends TestCase
         $this->assertTrue($run->steps->every(fn ($step) => $step->status === WorkflowStepStatus::SUCCEEDED && $step->started_at && $step->finished_at));
         $this->assertSame(ArticleStatus::READY_FOR_REVIEW, $article->fresh()->status);
         $this->assertDatabaseCount('generated_posts', 1);
-        $this->assertTrue((bool) $article->generatedPosts()->first()->metadata['placeholder']);
+        $this->assertFalse((bool) $article->generatedPosts()->first()->metadata['placeholder']);
         $this->assertDatabaseHas('audit_logs', ['event' => 'workflow.started']);
         $this->assertDatabaseHas('audit_logs', ['event' => 'article.ready_for_review']);
         $this->assertDatabaseHas('audit_logs', ['event' => 'workflow.succeeded']);
@@ -95,6 +102,9 @@ class WorkflowEngineTest extends TestCase
                     $this->counters[$this->key] = ($this->counters[$this->key] ?? 0) + 1;
                     if ($this->key === 'rewrite') {
                         return (new PlaceholderProcessor('rewrite'))->process($article, $run);
+                    }
+                    if ($this->key === 'fact_check') {
+                        return ['pass' => true, 'severity' => 'none', 'mismatches' => [], 'unsupported_claims' => []];
                     }
 
                     return ['placeholder' => true];

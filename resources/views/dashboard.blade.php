@@ -11,7 +11,7 @@
 
     <div class="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
         <section aria-label="สรุปสถานะข่าว" class="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-            @foreach ([['ข่าวใหม่', $counts['new'], 'text-sky-700'], ['กำลังทำงาน', $counts['processing'], 'text-blue-700'], ['รอตรวจทาน', $counts['review'], 'text-amber-700'], ['เผยแพร่แล้ว', $counts['published'], 'text-emerald-700'], ['ผิดพลาด', $counts['failed'], 'text-red-700'], ['เผยแพร่วันนี้', $publicationsToday, 'text-violet-700']] as [$label, $count, $color])
+            @foreach ([['ข่าวใหม่', $counts['new'], 'text-sky-700'], ['กำลังทำงาน', $counts['processing'], 'text-blue-700'], ['รอตรวจทาน', $counts['review'], 'text-amber-700'], ['ติดธงตรวจสอบ', $counts['flagged'], 'text-red-700'], ['เผยแพร่แล้ว', $counts['published'], 'text-emerald-700'], ['ผิดพลาด', $counts['failed'], 'text-red-700'], ['เผยแพร่วันนี้', $publicationsToday, 'text-violet-700']] as [$label, $count, $color])
                 <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                     <p class="text-sm text-slate-500">{{ $label }}</p>
                     <p class="mt-2 text-3xl font-bold {{ $color }}">{{ number_format($count) }}</p>

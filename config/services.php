@@ -35,4 +35,13 @@ return [
         ],
     ],
 
+    'ai_text' => [
+        'driver' => env('AI_TEXT_DRIVER', 'fake'),
+        'api_key' => env('AI_TEXT_API_KEY'),
+        'model' => env('AI_TEXT_MODEL', 'gpt-4o-mini'),
+        'base_url' => env('AI_TEXT_BASE_URL', 'https://api.openai.com/v1'),
+        'timeout' => (int) env('AI_TEXT_TIMEOUT', 30),
+        'retries' => (int) env('AI_TEXT_RETRIES', 2),
+    ],
+
 ];

@@ -8,6 +8,7 @@ enum ArticleStatus: string
     case FETCHED = 'fetched';
     case PROCESSING = 'processing';
     case READY_FOR_REVIEW = 'ready_for_review';
+    case FLAGGED = 'flagged';
     case APPROVED = 'approved';
     case REJECTED = 'rejected';
     case PUBLISHING = 'publishing';

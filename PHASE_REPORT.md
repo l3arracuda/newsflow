@@ -1,41 +1,41 @@
-# Phase 05 — Admin Dashboard & Article Operations
+# Phase 06 — AI Text Pipeline
 
 ## Acceptance gate: PASS
 
-Phase 05 adds an authenticated operational dashboard, article search and detail pages, workflow-run inspection, and admin-only retry controls. It does not start Phase 06 or publish content to an external platform.
+The workflow's fact extraction, summary, rewrite, and fact-check steps now use provider contracts and validated structured output. The default driver is a deterministic fake provider; OpenAI is available through environment configuration. This phase does not include the live provider call, image pipeline, review UI, or publishing.
 
 ## Delivered
 
-- Dashboard metrics, recent/failed workflows, source scan status, and publication counts.
-- Article list filters for source, status, date range, and keyword, with pagination.
-- Article detail view for source, snapshots, workflow history, generated drafts/assets, and selected audit details.
-- Workflow timeline with sanitized error messages and retry of eligible latest failed attempts.
-- `last_scanned_at` tracking for real source scans; dry runs do not update it.
-- Thai responsive navigation and operational views.
-
-Publishing/provider integration remains out of scope. Generated content is presented as a draft/placeholder and must not be treated as published. Existing sources show no scan time until a non-dry-run discovery executes.
+- Provider and role contracts: `AiTextProvider`, `FactExtractor`, `ArticleSummarizer`, `SocialPostRewriter`, and `FactConsistencyChecker`.
+- Fake provider for repeatable local/testing use and an OpenAI Chat Completions adapter using strict JSON Schema output, configurable model, timeout, retries, and API parameters.
+- Prompt-template columns for system/instruction text, parameters, active version, and `updated_by`, while retaining legacy fields.
+- Seeded version-1 prompt templates: `FACT_EXTRACT`, `NEWS_SUMMARY`, `FACEBOOK_REWRITE`, and `FACT_CHECK`.
+- Facts, summary, rewrite, and structured consistency results with prompt id/version, model, usage, and check timestamp provenance.
+- Draft posts link uniquely to a workflow run so retry does not duplicate draft versions.
+- Failed consistency checks set the article status to `flagged` and do not allow `ready_for_review`.
+- Source text is sent as untrusted evidence, separate from trusted prompt instructions; no tools are provided to the model.
 
 ## Verification
 
-- `php artisan test --filter=AdminDashboardTest` — PASS, 7 tests / 60 assertions.
-- `php artisan test --filter=SourceFetchingTest` — PASS, 12 tests / 32 assertions.
-- `php artisan test` — PASS, 60 tests / 248 assertions.
-- `vendor\\bin\\pint --test app database tests routes` — PASS.
-- `npm run build` — PASS.
-- Live XAMPP database migration was not run as part of this checkpoint.
+- `php artisan test --filter=AiTextPipelineTest` — PASS, 6 tests.
+- `php artisan test` — PASS, 66 tests / 271 assertions.
+- `vendor\\bin\\pint --test app database tests routes config` — PASS.
+- `npm run build` — PASS (59 modules).
+- Provider tests use a mocked HTTP response; no live AI API call or billing occurred.
+- Production/local XAMPP database migration was not run by this task.
 
-## Manual verification on the local XAMPP setup
+## Manual test on the local setup
 
-1. On branch `dev/phase-05-admin-dashboard`, run `php artisan migrate` to add `sources.last_scanned_at`.
-2. Optionally run `php artisan news:discover thairath_society` for a real source scan. A dry run will not record the scan time.
-3. Sign in with an admin account and open `/dashboard`. Check the metrics, workflow lists, and source scan status.
-4. Open `/articles`; try the source, status, date, and keyword filters and confirm pagination retains them.
-5. Open an article and inspect snapshots, workflow history, draft/assets, and audit details. Confirm placeholder output is clearly not presented as published.
-6. Open a workflow from the article or dashboard and inspect its step timeline. For an eligible failed workflow, verify retry is available to an admin only and asks for confirmation.
+1. On branch `dev/phase-06-ai-text-pipeline`, run `php artisan migrate` and `php artisan db:seed`.
+2. Keep `AI_TEXT_DRIVER=fake` in `.env` for a no-cost local run. Start the app/queue the same way as the prior phase.
+3. Start processing a fetched article with a snapshot using the existing workflow command or UI. Open its workflow details and verify `extract_facts`, `summarize`, `rewrite`, and `fact_check` all succeed; inspect the prompt/model provenance and structured output under each step.
+4. Open the article details and verify one draft exists, its body includes source attribution and URL, and its metadata is not marked placeholder.
+5. To test the blocked-review path without a real provider, automated coverage injects a fake fact-check response with unsupported claims; expected outcome is article status `flagged`, workflow complete, and no `article.ready_for_review` audit event.
+6. To enable real provider calls deliberately, set `AI_TEXT_DRIVER=openai`, fill `AI_TEXT_API_KEY`, choose `AI_TEXT_MODEL`, and clear cached configuration/restart queue workers. This can incur API charges. Do not put the key in Git.
 
 ## Checkpoint
 
-- Branch: `dev/phase-05-admin-dashboard`
+- Branch: `dev/phase-06-ai-text-pipeline`
 - Commit: recorded after final verification.
-- Merge/tag: intentionally not performed; awaiting user review.
-- Next phase: not started.
+- Merge/tag: not performed; awaiting review.
+- Phase 07: not started.

@@ -9,7 +9,7 @@ class PromptTemplate extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['key', 'name', 'version', 'template', 'variables', 'is_active', 'metadata'];
+    protected $fillable = ['key', 'name', 'version', 'template', 'variables', 'is_active', 'metadata', 'system_prompt', 'instruction', 'parameters', 'updated_by'];
 
     protected function casts(): array
     {
@@ -18,6 +18,7 @@ class PromptTemplate extends Model
             'variables' => 'array',
             'is_active' => 'boolean',
             'metadata' => 'array',
+            'parameters' => 'array',
         ];
     }
 }

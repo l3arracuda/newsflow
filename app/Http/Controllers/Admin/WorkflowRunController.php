@@ -20,6 +20,18 @@ class WorkflowRunController
         $workflow->setAttribute('safe_error_summary', $errors->sanitize($workflow->error_summary));
         foreach ($workflow->steps as $step) {
             $step->setAttribute('safe_error_summary', $errors->sanitize($step->error_summary));
+            $metadata = $step->metadata ?? [];
+            $result = match ($step->step_key) {
+                'extract_facts' => $metadata['facts'] ?? [],
+                'summarize' => $metadata['result'] ?? [],
+                'rewrite' => $metadata['rewrite'] ?? [],
+                'fact_check' => $metadata,
+                default => [],
+            };
+            $provenance = $result['_provenance'] ?? [];
+            unset($result['_provenance'], $result['source_claims']);
+            $step->setAttribute('ai_provenance', $provenance);
+            $step->setAttribute('ai_output', $result);
         }
         $failedSteps = $workflow->steps
             ->groupBy('step_key')

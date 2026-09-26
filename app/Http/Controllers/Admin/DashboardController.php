@@ -21,6 +21,7 @@ class DashboardController
                 'new' => (int) ($counts[ArticleStatus::DISCOVERED->value] ?? 0),
                 'processing' => (int) ($counts[ArticleStatus::PROCESSING->value] ?? 0),
                 'review' => (int) ($counts[ArticleStatus::READY_FOR_REVIEW->value] ?? 0),
+                'flagged' => (int) ($counts[ArticleStatus::FLAGGED->value] ?? 0),
                 'published' => (int) ($counts[ArticleStatus::PUBLISHED->value] ?? 0),
                 'failed' => (int) ($counts[ArticleStatus::FAILED->value] ?? 0),
             ],

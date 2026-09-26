@@ -14,7 +14,7 @@ class GeneratedPost extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['article_id', 'version', 'status', 'draft_text', 'source_attribution', 'source_url', 'metadata'];
+    protected $fillable = ['article_id', 'workflow_run_id', 'version', 'status', 'draft_text', 'source_attribution', 'source_url', 'metadata'];
 
     protected function casts(): array
     {

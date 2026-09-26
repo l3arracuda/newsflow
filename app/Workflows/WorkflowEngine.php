@@ -67,11 +67,13 @@ class WorkflowEngine
                     if ($definition['key'] === 'awaiting_review') {
                         $article = Article::query()->lockForUpdate()->findOrFail($run->article_id);
                         $before = $article->status?->value;
-                        $article->update(['status' => ArticleStatus::READY_FOR_REVIEW]);
+                        $factCheck = $run->steps()->where('step_key', 'fact_check')->where('status', WorkflowStepStatus::SUCCEEDED)->latest('attempt')->first()?->metadata;
+                        $passed = (bool) ($factCheck['pass'] ?? false);
+                        $article->update(['status' => $passed ? ArticleStatus::READY_FOR_REVIEW : ArticleStatus::FLAGGED]);
                         $run->auditLogs()->create([
-                            'event' => 'article.ready_for_review',
+                            'event' => $passed ? 'article.ready_for_review' : 'article.flagged_for_fact_check',
                             'before_state' => ['article_status' => $before],
-                            'after_state' => ['article_status' => ArticleStatus::READY_FOR_REVIEW->value],
+                            'after_state' => ['article_status' => $passed ? ArticleStatus::READY_FOR_REVIEW->value : ArticleStatus::FLAGGED->value],
                         ]);
                     }
                 });
