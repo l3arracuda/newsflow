@@ -167,6 +167,34 @@ class AiTextPipelineTest extends TestCase
         $this->assertSame(2, $run->steps()->where('step_key', 'rewrite')->count());
     }
 
+    public function test_rewrite_processor_appends_source_url_when_provider_omits_it(): void
+    {
+        Queue::fake();
+        $provider = new class implements AiTextProvider
+        {
+            public function generate(string $operation, string $systemPrompt, string $instruction, array $input, array $schema, array $parameters): array
+            {
+                $result = app(FakeAiTextProvider::class)->generate($operation, $systemPrompt, $instruction, $input, $schema, $parameters);
+                if ($operation === 'FACEBOOK_REWRITE') {
+                    $result['data']['body'] = 'เนื้อหาโพสต์ที่โมเดลลืมใส่ลิงก์';
+                }
+
+                return $result;
+            }
+        };
+        $this->app->instance(AiTextProvider::class, $provider);
+        $this->app->forgetInstance(AiTextPipeline::class);
+        $article = $this->articleWithSnapshot();
+        $run = app(WorkflowStarter::class)->start($article)['run'];
+
+        app(WorkflowEngine::class)->run($run->id);
+
+        $this->assertSame(WorkflowRunStatus::SUCCEEDED, $run->fresh()->status);
+        $post = $article->generatedPosts()->firstOrFail();
+        $this->assertStringContainsString($article->source_url, $post->draft_text);
+        $this->assertStringContainsString('ที่มา:', $post->draft_text);
+    }
+
     private function articleWithSnapshot(): Article
     {
         $source = Source::create([

@@ -64,7 +64,7 @@ class ReviewService
         }
         $rewrite = $this->rewriter->rewrite($post->article->title, $facts, $summary, $post->source_attribution, $post->source_url);
         if (! str_contains($rewrite['body'], $post->source_url)) {
-            throw new RuntimeException('โพสต์ที่สร้างใหม่ต้องมีลิงก์ต้นทาง');
+            $rewrite['body'] = rtrim($rewrite['body'])."\n\nที่มา: {$post->source_attribution} {$post->source_url}";
         }
         $metadata['rewrite'] = $rewrite;
         $metadata['rewrite_regenerated_by'] = $reviewer->id;

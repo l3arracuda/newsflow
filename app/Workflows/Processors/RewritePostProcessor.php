@@ -23,7 +23,7 @@ class RewritePostProcessor implements WorkflowStepProcessor
         }
         $result = $this->rewriter->rewrite($article->title, $facts, $summary['summary'], $article->source->name, $article->source_url);
         if (! str_contains($result['body'], $article->source_url)) {
-            throw new RuntimeException('Rewritten post must include the source URL attribution.');
+            $result['body'] = rtrim($result['body'])."\n\nที่มา: {$article->source->name} {$article->source_url}";
         }
 
         $post = DB::transaction(function () use ($article, $run, $result, $facts, $summary) {

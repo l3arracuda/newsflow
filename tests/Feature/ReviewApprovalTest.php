@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\AI\Contracts\SocialPostRewriter;
 use App\Enums\ArticleStatus;
 use App\Enums\GeneratedPostStatus;
 use App\Enums\ReviewDecisionType;
@@ -137,6 +138,23 @@ class ReviewApprovalTest extends TestCase
         $checked = $rewriteRevision->fresh();
         $this->assertTrue($checked->metadata['fact_check']['pass']);
         $this->assertSame(hash('sha256', $checked->draft_text), $checked->metadata['checked_draft_hash']);
+    }
+
+    public function test_rewrite_adds_source_attribution_if_provider_omits_it(): void
+    {
+        [$article, $post, $admin] = $this->reviewCase(withImage: false);
+        $this->app->instance(SocialPostRewriter::class, new class implements SocialPostRewriter
+        {
+            public function rewrite(string $title, array $facts, string $summary, string $sourceName, string $sourceUrl): array
+            {
+                return ['title' => 'หัวข้อทดสอบ', 'body' => 'เนื้อหาโพสต์ทดสอบที่ไม่มีลิงก์', 'hook' => ''];
+            }
+        });
+
+        $this->actingAs($admin)->post(route('review.rewrite.regenerate', $post))->assertRedirect();
+
+        $revision = $article->generatedPosts()->latest('version')->firstOrFail();
+        $this->assertStringContainsString("ที่มา: {$article->source->name} {$article->source_url}", $revision->draft_text);
     }
 
     public function test_regenerate_image_appends_asset_version_and_preserves_original(): void

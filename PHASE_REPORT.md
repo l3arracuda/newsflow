@@ -42,12 +42,13 @@ ReviewApprovalTest: 11 passed (85 assertions)
 
 ### Full suite
 ```text
-85 passed (394 assertions)
+87 passed (399 assertions)
 Production asset build: passed
 git diff --check: passed
 ```
 
 Test suite forces text and image drivers to `fake`, even when local `.env` enables paid providers.
+The rewrite processor appends source attribution if an AI provider omits the URL; regression tests cover this behavior.
 
 ## Manual verification
 1. Switch to `dev/phase-08-review-approval`, start the local Laravel app, and sign in with an admin account.
