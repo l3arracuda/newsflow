@@ -2,11 +2,25 @@
     <x-slot name="header">
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div><h1 class="text-xl font-semibold text-slate-900">ข่าวทั้งหมด</h1><p class="mt-1 text-sm text-slate-500">ค้นหาและติดตามสถานะข่าวในระบบ</p></div>
-            <a href="{{ route('dashboard') }}" class="text-sm font-medium text-blue-700 hover:underline">กลับแดชบอร์ด</a>
+            <div class="flex items-center gap-3">
+                <form method="POST" action="{{ route('articles.discover') }}" onsubmit="this.querySelector('button').disabled = true; this.querySelector('button').textContent = 'กำลังดึงข่าว…';">
+                    @csrf
+                    <button class="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:cursor-wait disabled:opacity-70">ดึงข่าวล่าสุด</button>
+                </form>
+                <a href="{{ route('dashboard') }}" class="text-sm font-medium text-blue-700 hover:underline">กลับแดชบอร์ด</a>
+            </div>
         </div>
     </x-slot>
 
     <div class="mx-auto max-w-7xl space-y-5 px-4 py-6 sm:px-6 lg:px-8">
+        @if (session('discovery_result'))
+            <div role="status" class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                ตรวจข่าวล่าสุดแล้ว: พบ {{ session('discovery_result.candidates') }} ข่าวใหม่ {{ session('discovery_result.created') }} ข่าว และเป็นข่าวเดิม {{ session('discovery_result.existing') }} ข่าว
+            </div>
+        @endif
+        @if (session('discovery_error'))
+            <div role="alert" class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{{ session('discovery_error') }}</div>
+        @endif
         <form method="GET" action="{{ route('articles.index') }}" class="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-6">
             <label class="text-sm text-slate-600">คำค้น
                 <input name="q" value="{{ $filters['q'] ?? '' }}" placeholder="ค้นจากหัวข้อข่าว" class="mt-1 block w-full rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-blue-500">

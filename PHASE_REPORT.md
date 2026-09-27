@@ -7,19 +7,22 @@ Phase 08 — Review & Approval
 PASS
 
 ## Summary
-Added an admin-only review workspace that presents the assembled pre-publication package (source snapshot, extracted facts, summary, Facebook draft, fact-check result, generated images, workflow history, and prior decisions). Reviewers can edit the draft, regenerate summary/rewrite/image, rerun fact-checking, approve, reject, or request changes. Approval requires a current passing fact-check or an audited reasoned override, and an image or an explicit reason for omitting one. Approval creates a content/version hash snapshot and does not publish. Subsequent edits create a new version and invalidate the old approval for the new version.
+Added an admin-only review workspace that presents the assembled pre-publication package (source snapshot, extracted facts, summary, Facebook draft, fact-check result, generated images, workflow history, and prior decisions). Reviewers can edit the draft, regenerate summary/rewrite/image, rerun fact-checking, approve, reject, or request changes. Approval requires a current passing fact-check or an audited reasoned override, and an image or an explicit reason for omitting one. Approval creates a content/version hash snapshot and does not publish. Subsequent edits create a new version and invalidate the old approval for the new version. The admin article list also has a “ดึงข่าวล่าสุด” action for the configured ThaiRath Society source; it reports discovered/new/duplicate counts and does not automatically start article workflows.
 
 ## Files changed
 - `app/Enums/ArticleStatus.php`
 - `app/Enums/GeneratedPostStatus.php`
 - `app/Http/Controllers/Admin/ReviewController.php`
+- `app/Http/Controllers/Admin/ArticleController.php`
 - `app/Reviews/ReviewService.php`
 - `app/Workflows/Processors/CheckFactsProcessor.php`
 - `resources/views/admin/review/show.blade.php`
+- `resources/views/articles/index.blade.php`
 - `resources/views/articles/show.blade.php`
 - `resources/views/partials/status-badge.blade.php`
 - `routes/web.php`
 - `tests/Feature/ReviewApprovalTest.php`
+- `tests/Feature/NewsDiscoveryUiTest.php`
 - `PHASE_REPORT.md`
 
 ## Database migrations
@@ -29,6 +32,7 @@ Added an admin-only review workspace that presents the assembled pre-publication
 ```text
 vendor\bin\pint app database tests routes resources config
 php artisan test --filter=ReviewApprovalTest
+php artisan test --filter=NewsDiscoveryUiTest
 php artisan test
 npm run build
 git diff --check
@@ -37,12 +41,13 @@ git diff --check
 ## Tests
 ### Targeted
 ```text
-ReviewApprovalTest: 11 passed (85 assertions)
+ReviewApprovalTest: 14 passed (110 assertions)
+NewsDiscoveryUiTest: 3 passed (11 assertions)
 ```
 
 ### Full suite
 ```text
-90 passed (426 assertions)
+93 passed (437 assertions)
 Production asset build: passed
 git diff --check: passed
 ```
@@ -59,6 +64,7 @@ Manual image mode imports a validated image named with the article ID from `stor
 4. Approve a complete package and confirm the version snapshot/status is recorded but no publication is created or sent to Facebook.
 5. Edit an approved draft; confirm a new version is created and the new version must be checked and approved separately.
 6. For manual imagery, place `{article_id}.png` (or `.jpg`, `.jpeg`, `.webp`) in `storage/app/private/manual-news-images/`, then select “นำเข้าภาพจากโฟลเดอร์” on the review page. The source file stays in place and each changed image is copied into a new immutable asset version.
+7. From Articles, click “ดึงข่าวล่าสุด”; confirm the ThaiRath Society discovery result reports candidate, new, and existing article counts. This does not start content-generation workflows.
 
 ## Security / data notes
 - Review page, preview assets, and review actions are protected by admin middleware.

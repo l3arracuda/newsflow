@@ -5,14 +5,53 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\ArticleStatus;
 use App\Models\Article;
 use App\Models\Source;
+use App\News\Exceptions\SourceFetchException;
+use App\News\Services\ArticleDiscoveryService;
 use App\Support\SafeErrorPresenter;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
+use Throwable;
 
 class ArticleController
 {
+    public function discoverLatest(ArticleDiscoveryService $discovery): RedirectResponse
+    {
+        $source = Source::query()->where('key', 'thairath_society')->first();
+        if (! $source || ! $source->is_active) {
+            return redirect()->route('articles.index')->with('discovery_error', 'ไม่พบแหล่งข่าว ThaiRath Society ที่เปิดใช้งานอยู่');
+        }
+
+        try {
+            $result = $discovery->discover($source);
+        } catch (Throwable $exception) {
+            $category = $exception instanceof SourceFetchException ? $exception->category : 'unexpected';
+            Log::warning('News discovery from articles page failed.', [
+                'source_key' => $source->key,
+                'error_category' => $category,
+                'error_class' => $exception::class,
+            ]);
+
+            $message = match ($category) {
+                'robots_disallowed' => 'แหล่งข่าวไม่อนุญาตให้ดึงข้อมูลในขณะนี้',
+                'rate_limited' => 'แหล่งข่าวจำกัดการเข้าถึง กรุณารอสักครู่แล้วลองใหม่',
+                'timeout' => 'เชื่อมต่อแหล่งข่าวไม่สำเร็จ กรุณาลองใหม่ภายหลัง',
+                default => 'ดึงข่าวไม่สำเร็จ กรุณาตรวจการเชื่อมต่อแล้วลองใหม่',
+            };
+
+            return redirect()->route('articles.index')->with('discovery_error', $message);
+        }
+
+        return redirect()->route('articles.index')->with('discovery_result', [
+            'candidates' => $result['candidates'],
+            'created' => $result['created'],
+            'existing' => $result['existing'],
+        ]);
+    }
+
     public function index(Request $request): View
     {
         $filters = $request->validate([
