@@ -11,4 +11,5 @@ enum GeneratedPostStatus: string
     case PUBLISHING = 'publishing';
     case PUBLISHED = 'published';
     case FAILED = 'failed';
+    case CHANGES_REQUESTED = 'changes_requested';
 }

@@ -68,6 +68,7 @@
                 @forelse ($article->generatedPosts as $post)
                     <article class="rounded-lg border border-slate-200 p-4">
                         <div class="flex flex-wrap items-center justify-between gap-2"><h3 class="font-medium text-slate-800">Draft #{{ $post->id }} · รุ่น {{ $post->version }}</h3>@include('partials.status-badge', ['status' => $post->status])</div>
+                        <a href="{{ route('articles.review', ['article' => $article, 'post' => $post]) }}" class="mt-3 inline-flex rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-700">เปิดชุดตรวจและอนุมัติ</a>
                         @if (($post->metadata['placeholder'] ?? false) === true)<p class="mt-2 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">เนื้อหานี้เป็น placeholder สำหรับทดสอบ ไม่ใช่โพสต์พร้อมเผยแพร่</p>@endif
                         <div class="mt-3 whitespace-pre-wrap break-words rounded-lg bg-slate-50 p-3 text-sm text-slate-700">{{ $post->draft_text }}</div>
                         <p class="mt-2 text-xs text-slate-500">ที่มา: {{ $post->source_attribution }} · <a href="{{ $post->source_url }}" target="_blank" rel="noopener noreferrer" class="text-blue-700 hover:underline">ลิงก์ต้นทาง</a></p>

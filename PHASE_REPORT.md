@@ -1,43 +1,81 @@
-# Phase 07 — Image Prompt & Generated Asset Pipeline
+# PHASE_REPORT
 
-## Acceptance gate: PASS
+## Phase
+Phase 08 — Review & Approval
 
-Phase 07 replaces the workflow's image prompt and image generation placeholders with an editorial prompt builder, provider abstraction, private storage adapter, traceable asset records, and a regenerate command. The default provider is a small fake PNG fixture; no live image API was called.
+## Status
+PASS
 
-## Delivered
+## Summary
+Added an admin-only review workspace that presents the assembled pre-publication package (source snapshot, extracted facts, summary, Facebook draft, fact-check result, generated images, workflow history, and prior decisions). Reviewers can edit the draft, regenerate summary/rewrite/image, rerun fact-checking, approve, reject, or request changes. Approval requires a current passing fact-check or an audited reasoned override, and an image or an explicit reason for omitting one. Approval creates a content/version hash snapshot and does not publish. Subsequent edits create a new version and invalidate the old approval for the new version.
 
-- `ImagePromptBuilder`, `ImageGenerationProvider`, and `GeneratedAssetStorage` contracts.
-- Fact-based editorial prompt generation with category/sensitivity metadata and conservative non-graphic guidance for sensitive stories.
-- Fake provider for tests and configurable OpenAI GPT image adapter returning base64 image data; model, timeout, retry, output size, and storage disk are configuration-driven.
-- Generated asset schema includes workflow association, provider ID, file dimensions, content hash, prompt text/version, and status.
-- File type/dimensions/size validation before private storage; metadata identifies generated illustrations and records that no source image reference was used.
-- Workflow retry is idempotent by workflow run; regeneration creates a higher asset version without deleting old files.
-- `news:image:regenerate {generatedPostId}` command and admin article view details for assets.
-- Audit event on generated asset creation.
+## Files changed
+- `app/Enums/ArticleStatus.php`
+- `app/Enums/GeneratedPostStatus.php`
+- `app/Http/Controllers/Admin/ReviewController.php`
+- `app/Reviews/ReviewService.php`
+- `app/Workflows/Processors/CheckFactsProcessor.php`
+- `resources/views/admin/review/show.blade.php`
+- `resources/views/articles/show.blade.php`
+- `resources/views/partials/status-badge.blade.php`
+- `routes/web.php`
+- `tests/Feature/ReviewApprovalTest.php`
+- `PHASE_REPORT.md`
 
-The OpenAI adapter is limited to GPT image models, which return base64 data by default; no remote source image URL is downloaded or passed as an image reference.
+## Database migrations
+- None in Phase 08. Existing workflow, generated-post, asset, audit, and review-decision tables are reused.
 
-## Verification
+## Commands run
+```text
+vendor\bin\pint app database tests routes resources config
+php artisan test --filter=ReviewApprovalTest
+php artisan test
+npm run build
+git diff --check
+```
 
-- `php artisan test --filter=ImagePipelineTest` — PASS, 6 tests / 30 assertions.
-- `php artisan test` — PASS, 72 tests / 301 assertions.
-- `vendor\\bin\\pint --test app database tests routes config` — PASS.
-- `npm run build` — PASS (59 modules).
-- OpenAI adapter test uses a mocked HTTP response only; no external API call or billing occurred.
-- Live XAMPP database migration was not run by this task.
+## Tests
+### Targeted
+```text
+ReviewApprovalTest: 11 passed (85 assertions)
+```
 
-## Manual test on XAMPP
+### Full suite
+```text
+83 passed (386 assertions)
+Production asset build: passed
+git diff --check: passed
+```
 
-1. Switch to `dev/phase-07-image-pipeline`, then run `php artisan migrate` and `php artisan db:seed`.
-2. Leave `IMAGE_GENERATION_DRIVER=fake` in `.env` for a no-cost test. The fake provider produces a tiny fixture image, not a usable editorial illustration.
-3. Create a fresh workflow using an article with a snapshot and extracted facts. Previously completed Phase 04 workflows will not rerun automatically; discover/fetch a new article or start an eligible new workflow.
-4. Open the workflow detail and verify `image_prompt` and `image_generate` succeeded. Open the article detail and check the generated-illustration marker, provider, dimensions, prompt version, checksum, and storage path.
-5. Run `php artisan news:image:regenerate <generatedPostId>` twice. Each run should create the next asset version while earlier versions remain present. The generated post ID is visible in the article detail page.
-6. Only when intentionally ready to use a paid provider, set `IMAGE_GENERATION_DRIVER=openai`, set `IMAGE_GENERATION_API_KEY`, select an accessible `IMAGE_GENERATION_MODEL` beginning with `gpt-image-`, clear cached config, and restart queue workers. This can incur API charges.
+## Manual verification
+1. Switch to `dev/phase-08-review-approval`, start the local Laravel app, and sign in with an admin account.
+2. Open Articles, select an article with a completed Phase 07 workflow, and choose “เปิดชุดตรวจและอนุมัติ”. Confirm the source, facts, summary, draft, fact-check, image, and workflow history are visible together.
+3. Try approving a draft with a failing/stale fact-check or without an image; confirm a reason is required for an override or explicit no-image approval.
+4. Approve a complete package and confirm the version snapshot/status is recorded but no publication is created or sent to Facebook.
+5. Edit an approved draft; confirm a new version is created and the new version must be checked and approved separately.
 
-## Checkpoint
+## Security / data notes
+- Review page, preview assets, and review actions are protected by admin middleware.
+- Approval overrides, no-image reasons, decisions, and version changes are recorded in audit/review history.
+- Generated asset previews are served through an authenticated route with a restricted MIME allowlist and private caching.
+- No live Facebook publishing or real external AI call is performed by approval; publication remains a separate later phase.
+- No secrets are included in the phase changes.
 
-- Branch: `dev/phase-07-image-pipeline`
-- Commit: recorded after final verification.
-- Merge/tag: not performed; awaiting user review.
-- Phase 08: not started.
+## Known limitations
+- Review content generation uses the project's configured AI/image providers; local tests use fakes and do not validate external provider credentials.
+- Phase 08 ends at human approval. Facebook publishing is not included.
+
+## Required user configuration
+- No new configuration is required for Phase 08. Existing Phase 07 provider and database setup is used.
+
+## Acceptance checklist
+- [x] Complete pre-publication package is visible in one review workspace.
+- [x] Draft, summary, rewrite, image, and fact-check actions create/audit the expected reviewable state.
+- [x] Approval gating, reasoned exceptions, immutable version snapshot, and re-approval after edits are enforced.
+- [x] Approval does not publish.
+- [x] Tests pass.
+- [x] No secrets committed.
+- [x] No next phase work included.
+
+## ACCEPTANCE GATE
+PASS

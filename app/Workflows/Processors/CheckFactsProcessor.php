@@ -4,6 +4,7 @@ namespace App\Workflows\Processors;
 
 use App\AI\Contracts\FactConsistencyChecker;
 use App\Models\Article;
+use App\Models\GeneratedPost;
 use App\Models\WorkflowRun;
 use App\Workflows\WorkflowStepProcessor;
 use RuntimeException;
@@ -21,6 +22,13 @@ class CheckFactsProcessor implements WorkflowStepProcessor
         }
         $result = $this->checker->check($facts, $rewrite);
         $result['flagged'] = ! $result['pass'];
+        $post = GeneratedPost::query()->where('workflow_run_id', $run->id)->first();
+        if ($post) {
+            $metadata = $post->metadata ?? [];
+            $metadata['fact_check'] = $result;
+            $metadata['checked_draft_hash'] = hash('sha256', $post->draft_text);
+            $post->update(['metadata' => $metadata]);
+        }
 
         return $result;
     }
