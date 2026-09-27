@@ -153,6 +153,51 @@ class WorkflowEngineTest extends TestCase
         app(WorkflowRetrier::class)->retry($run->id, 'summarize');
     }
 
+    public function test_placeholder_success_can_be_reprocessed_as_a_new_run_without_overwriting_old_post(): void
+    {
+        Queue::fake();
+        $article = $this->fetchedArticle();
+        $previousRun = $article->workflowRuns()->create([
+            'run_type' => 'article_pipeline', 'status' => WorkflowRunStatus::SUCCEEDED,
+            'attempt' => 1, 'metadata' => ['trigger' => 'legacy'], 'finished_at' => now(),
+        ]);
+        $previousRun->steps()->create([
+            'step_key' => 'extract_facts', 'name' => 'แยกข้อเท็จจริง', 'status' => WorkflowStepStatus::SUCCEEDED,
+            'attempt' => 1, 'metadata' => ['placeholder' => true, 'processor' => 'not_configured'],
+        ]);
+        $oldPost = $article->generatedPosts()->create([
+            'workflow_run_id' => $previousRun->id, 'version' => 1, 'status' => 'draft',
+            'draft_text' => '[placeholder]', 'source_attribution' => 'ThaiRath',
+            'source_url' => $article->source_url, 'metadata' => ['placeholder' => true],
+        ]);
+
+        $newRun = app(WorkflowStarter::class)->reprocessPlaceholder($article);
+
+        Queue::assertPushed(ProcessWorkflowJob::class, 1);
+        $this->assertNotSame($previousRun->id, $newRun->id);
+        $this->assertSame(WorkflowRunStatus::PENDING, $newRun->status);
+        $this->assertSame($previousRun->id, $newRun->metadata['previous_run_id']);
+        $this->assertSame('[placeholder]', $oldPost->fresh()->draft_text);
+        $this->assertSame(ArticleStatus::PROCESSING, $article->fresh()->status);
+        $this->assertDatabaseHas('audit_logs', ['event' => 'workflow.placeholder_reprocess_started']);
+    }
+
+    public function test_placeholder_reprocess_is_refused_for_real_successful_workflow(): void
+    {
+        $article = $this->fetchedArticle();
+        $run = $article->workflowRuns()->create([
+            'run_type' => 'article_pipeline', 'status' => WorkflowRunStatus::SUCCEEDED,
+            'attempt' => 1, 'metadata' => [], 'finished_at' => now(),
+        ]);
+        $run->steps()->create([
+            'step_key' => 'extract_facts', 'name' => 'แยกข้อเท็จจริง', 'status' => WorkflowStepStatus::SUCCEEDED,
+            'attempt' => 1, 'metadata' => ['facts' => ['event_action' => 'ข้อเท็จจริง']],
+        ]);
+
+        $this->expectException(\InvalidArgumentException::class);
+        app(WorkflowStarter::class)->reprocessPlaceholder($article);
+    }
+
     public function test_status_command_displays_run_and_step_history(): void
     {
         Queue::fake();

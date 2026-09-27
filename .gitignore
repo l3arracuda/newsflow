@@ -7,6 +7,7 @@
 /storage/pail
 /vendor
 .env
+OpenAI-APIKey.txt
 .env.backup
 .env.production
 .phpactor.json

@@ -42,10 +42,12 @@ ReviewApprovalTest: 11 passed (85 assertions)
 
 ### Full suite
 ```text
-83 passed (386 assertions)
+85 passed (394 assertions)
 Production asset build: passed
 git diff --check: passed
 ```
+
+Test suite forces text and image drivers to `fake`, even when local `.env` enables paid providers.
 
 ## Manual verification
 1. Switch to `dev/phase-08-review-approval`, start the local Laravel app, and sign in with an admin account.
@@ -60,6 +62,7 @@ git diff --check: passed
 - Generated asset previews are served through an authenticated route with a restricted MIME allowlist and private caching.
 - No live Facebook publishing or real external AI call is performed by approval; publication remains a separate later phase.
 - No secrets are included in the phase changes.
+- For legacy successful runs containing Phase 04 placeholders, `news:workflow:reprocess-placeholder {articleId}` starts a fresh run only if no post has been approved or published; prior workflow and draft versions are preserved.
 
 ## Known limitations
 - Review content generation uses the project's configured AI/image providers; local tests use fakes and do not validate external provider credentials.
