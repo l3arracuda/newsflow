@@ -34,7 +34,11 @@ class ReviewController
             'factCheck' => $metadata['fact_check'] ?? null,
             'factCheckCurrent' => $post && ($metadata['checked_draft_hash'] ?? null) === hash('sha256', $post->draft_text),
             'workflow' => $article->workflowRuns->first(),
-            'manualImageDirectory' => Storage::disk('local')->path('manual-news-images'),
+            'manualImageDirectory' => str_replace(
+                ['/', '\\'],
+                DIRECTORY_SEPARATOR,
+                Storage::disk('local')->path('manual-news-images'),
+            ),
         ]);
     }
 
