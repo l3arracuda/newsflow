@@ -7,19 +7,22 @@ use App\AI\Contracts\ArticleSummarizer;
 use App\AI\Contracts\FactConsistencyChecker;
 use App\AI\Contracts\FactExtractor;
 use App\AI\Contracts\SocialPostRewriter;
+use App\AI\FactCheckReconciler;
 use App\Models\PromptTemplate;
 use Illuminate\Support\Carbon;
 use RuntimeException;
 
 class AiTextPipeline implements ArticleSummarizer, FactConsistencyChecker, FactExtractor, SocialPostRewriter
 {
-    public function __construct(private readonly AiTextProvider $provider) {}
+    public function __construct(private readonly AiTextProvider $provider, private readonly FactCheckReconciler $factChecks) {}
 
     public function extract(string $title, string $sourceText): array
     {
         return $this->call('FACT_EXTRACT', ['title' => $title, 'source_text' => $sourceText], [
             'people_organizations' => [], 'places' => [], 'dates_times' => [], 'quantities_money' => [],
             'event_action' => '', 'warnings_advice' => [], 'source_claims' => [],
+            'evidence_claims' => [['statement' => '', 'source_quote' => '']],
+            'quantitative_claims' => [['subject' => '', 'relation' => '', 'value' => '', 'unit' => '', 'source_quote' => '']],
         ]);
     }
 
@@ -38,8 +41,13 @@ class AiTextPipeline implements ArticleSummarizer, FactConsistencyChecker, FactE
     public function check(array $facts, array $draft): array
     {
         $result = $this->call('FACT_CHECK', compact('facts', 'draft'), [
-            'pass' => true, 'severity' => 'none', 'mismatches' => [], 'unsupported_claims' => [],
+            'pass' => true,
+            'severity' => 'none',
+            'mismatches' => [['draft_quote' => '', 'source_quote' => '', 'explanation' => '']],
+            'unsupported_claims' => [['draft_quote' => '', 'explanation' => '']],
+            'quantitative_claims' => [['draft_quote' => '', 'subject' => '', 'relation' => '', 'value' => '', 'unit' => '']],
         ]);
+        $result = $this->factChecks->reconcile($facts, $draft, $result);
         $result['checked_at'] = Carbon::now()->toIso8601String();
 
         return $result;
@@ -89,12 +97,30 @@ class AiTextPipeline implements ArticleSummarizer, FactConsistencyChecker, FactE
     {
         $properties = [];
         foreach ($shape as $key => $value) {
-            $properties[$key] = match (true) {
-                is_string($value) => ['type' => 'string'],
-                is_bool($value) => ['type' => 'boolean'],
-                is_array($value) => ['type' => 'array', 'items' => ['type' => 'string']],
+            $properties[$key] = $this->propertySchema($value);
+        }
+
+        return ['type' => 'object', 'properties' => $properties, 'required' => array_keys($properties), 'additionalProperties' => false];
+    }
+
+    private function propertySchema(mixed $sample): array
+    {
+        if (! is_array($sample)) {
+            return match (true) {
+                is_bool($sample) => ['type' => 'boolean'],
+                is_int($sample) => ['type' => 'integer'],
+                is_float($sample) => ['type' => 'number'],
                 default => ['type' => 'string'],
             };
+        }
+
+        if (array_is_list($sample)) {
+            return ['type' => 'array', 'items' => $this->propertySchema($sample[0] ?? '')];
+        }
+
+        $properties = [];
+        foreach ($sample as $key => $value) {
+            $properties[$key] = $this->propertySchema($value);
         }
 
         return ['type' => 'object', 'properties' => $properties, 'required' => array_keys($properties), 'additionalProperties' => false];

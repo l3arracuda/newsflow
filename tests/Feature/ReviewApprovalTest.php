@@ -137,6 +137,7 @@ class ReviewApprovalTest extends TestCase
         $this->post(route('review.fact-check', $rewriteRevision))->assertRedirect();
         $checked = $rewriteRevision->fresh();
         $this->assertTrue($checked->metadata['fact_check']['pass']);
+        $this->assertSame(2, $checked->metadata['facts']['evidence_schema_version']);
         $this->assertSame(hash('sha256', $checked->draft_text), $checked->metadata['checked_draft_hash']);
     }
 

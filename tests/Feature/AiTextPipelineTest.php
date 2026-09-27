@@ -44,7 +44,9 @@ class AiTextPipelineTest extends TestCase
         $this->assertStringContainsString($article->source_url, $post->draft_text);
         $this->assertSame($run->id, $post->workflow_run_id);
         $facts = $run->steps()->where('step_key', 'extract_facts')->firstOrFail()->metadata['facts'];
-        $this->assertSame(1, $facts['_provenance']['prompt_template_version']);
+        $this->assertSame(2, $facts['_provenance']['prompt_template_version']);
+        $this->assertSame(2, $facts['evidence_schema_version']);
+        $this->assertTrue($facts['evidence_claims'][0]['evidence_verified']);
         $this->assertTrue($run->steps()->where('step_key', 'fact_check')->firstOrFail()->metadata['pass']);
     }
 
@@ -91,7 +93,7 @@ class AiTextPipelineTest extends TestCase
             public function generate(string $operation, string $systemPrompt, string $instruction, array $input, array $schema, array $parameters): array
             {
                 if ($operation === 'FACT_CHECK') {
-                    return ['data' => ['pass' => false, 'severity' => 'high', 'mismatches' => [], 'unsupported_claims' => ['ยอดเงินไม่อยู่ในข้อมูลต้นทาง']], 'model' => 'test', 'usage' => []];
+                    return ['data' => ['pass' => false, 'severity' => 'high', 'mismatches' => [], 'unsupported_claims' => [['draft_quote' => 'ข่าวทดสอบ AI pipeline', 'explanation' => 'ข้อกล่าวอ้างนี้ไม่อยู่ใน facts']], 'quantitative_claims' => []], 'model' => 'test', 'usage' => []];
                 }
 
                 return app(FakeAiTextProvider::class)->generate($operation, $systemPrompt, $instruction, $input, $schema, $parameters);

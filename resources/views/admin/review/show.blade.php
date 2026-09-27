@@ -46,6 +46,29 @@
                                     @endif
                                 @endforeach
                             </dl>
+                            @if (!empty($facts['quantitative_claims']))
+                                <div class="mt-4 space-y-2">
+                                    <h3 class="text-xs font-semibold text-slate-700">ตัวเลขพร้อมประเภทและข้อความอ้างอิง</h3>
+                                    @foreach ($facts['quantitative_claims'] as $claim)
+                                        <div class="rounded-lg border border-slate-200 p-3 text-sm">
+                                            <p class="font-medium text-slate-800">{{ $claim['subject'] ?? 'รายการไม่ระบุ' }} · {{ $claim['relation'] ?? 'ประเภทไม่ระบุ' }}: {{ $claim['value'] ?? '—' }} {{ $claim['unit'] ?? '' }}
+                                                <span class="ml-1 text-xs {{ ($claim['evidence_verified'] ?? false) ? 'text-emerald-700' : 'text-amber-700' }}">{{ ($claim['evidence_verified'] ?? false) ? 'ยืนยันข้อความต้นทางแล้ว' : 'ยังยืนยันข้อความอ้างอิงไม่ได้' }}</span>
+                                            </p>
+                                            @if (!empty($claim['source_quote']))<p class="mt-1 text-xs text-slate-600">ต้นทาง: {{ $claim['source_quote'] }}</p>@endif
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @endif
+                            @if (!empty($facts['evidence_claims']))
+                                <details class="mt-4 rounded-lg border border-slate-200 p-3">
+                                    <summary class="cursor-pointer text-xs font-semibold text-slate-700">ดูข้อเท็จจริงและข้อความต้นทางที่ใช้เป็นหลักฐาน</summary>
+                                    <ul class="mt-2 space-y-2 text-xs text-slate-600">
+                                        @foreach ($facts['evidence_claims'] as $claim)
+                                            <li><span class="font-medium">{{ $claim['statement'] ?? 'ข้อเท็จจริง' }}</span> — {{ ($claim['evidence_verified'] ?? false) ? 'ยืนยัน quote แล้ว' : 'quote ไม่ตรงกับต้นทาง' }}<br>“{{ $claim['source_quote'] ?? '' }}”</li>
+                                        @endforeach
+                                    </ul>
+                                </details>
+                            @endif
                         @else
                             <p class="mt-2 text-sm text-amber-700">ไม่มี facts ที่บันทึกกับ draft นี้</p>
                         @endif
@@ -68,7 +91,26 @@
                                 <span class="text-xs text-slate-500">ระดับ {{ $factCheck['severity'] ?? '—' }} · {{ $factCheck['checked_at'] ?? 'เวลาไม่ระบุ' }}</span>
                             </div>
                             @foreach (['mismatches' => 'จุดที่ไม่ตรงกัน', 'unsupported_claims' => 'ข้อกล่าวอ้างที่ไม่มีหลักฐาน'] as $key => $label)
-                                @if (!empty($factCheck[$key]))<div class="mt-3 rounded-lg bg-red-50 p-3"><p class="text-xs font-semibold text-red-800">{{ $label }}</p><ul class="mt-1 list-inside list-disc text-sm text-red-800">@foreach ($factCheck[$key] as $item)<li>{{ $item }}</li>@endforeach</ul></div>@endif
+                                @if (!empty($factCheck[$key]))
+                                    <div class="mt-3 rounded-lg bg-red-50 p-3"><p class="text-xs font-semibold text-red-800">{{ $label }}</p>
+                                        <ul class="mt-2 space-y-2 text-sm text-red-800">
+                                            @foreach ($factCheck[$key] as $item)
+                                                <li class="rounded-md bg-white/70 p-2">
+                                                    @if (is_array($item))
+                                                        <p><span class="font-medium">ข้อความในร่าง:</span> {{ $item['draft_quote'] ?? '—' }}</p>
+                                                        @if (!empty($item['source_quote']))<p class="mt-1"><span class="font-medium">หลักฐานต้นทาง:</span> {{ $item['source_quote'] }}</p>@endif
+                                                        @if (!empty($item['explanation']))<p class="mt-1 text-xs">{{ $item['explanation'] }}</p>@endif
+                                                    @else
+                                                        {{ $item }}
+                                                    @endif
+                                                </li>
+                                            @endforeach
+                                        </ul>
+                                    </div>
+                                @endif
+                            @endforeach
+                            @foreach ($factCheck['review_warnings'] ?? [] as $warning)
+                                <p class="mt-3 rounded-lg bg-amber-50 p-3 text-xs text-amber-800">{{ $warning }}</p>
                             @endforeach
                         @else
                             <p class="mt-3 text-sm text-amber-700">ยังไม่มีผลตรวจที่ผูกกับ draft ฉบับนี้</p>

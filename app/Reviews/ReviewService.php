@@ -4,7 +4,9 @@ namespace App\Reviews;
 
 use App\AI\Contracts\ArticleSummarizer;
 use App\AI\Contracts\FactConsistencyChecker;
+use App\AI\Contracts\FactExtractor;
 use App\AI\Contracts\SocialPostRewriter;
+use App\AI\FactEvidenceValidator;
 use App\Enums\ArticleStatus;
 use App\Enums\GeneratedPostStatus;
 use App\Enums\ReviewDecisionType;
@@ -24,6 +26,8 @@ class ReviewService
         private readonly ArticleSummarizer $summarizer,
         private readonly SocialPostRewriter $rewriter,
         private readonly FactConsistencyChecker $factChecker,
+        private readonly FactExtractor $factExtractor,
+        private readonly FactEvidenceValidator $factEvidence,
         private readonly EditorialImagePromptBuilder $imagePrompts,
         private readonly GeneratedImageAssetService $images,
     ) {}
@@ -80,9 +84,22 @@ class ReviewService
             unset($metadata['fact_check'], $metadata['checked_draft_hash']);
             $post = $this->createRevision($post, $reviewer, $post->draft_text, $metadata, 'review.fact_check_revision_created');
         }
-        $facts = $post->metadata['facts'] ?? null;
+        $metadata = $post->metadata ?? [];
+        $facts = $metadata['facts'] ?? null;
         if (! is_array($facts)) {
             throw new RuntimeException('ยังไม่มี facts สำหรับตรวจสอบข้อเท็จจริง');
+        }
+        if (($facts['evidence_schema_version'] ?? 0) < FactEvidenceValidator::SCHEMA_VERSION) {
+            $snapshot = $post->article->snapshots()->latest('fetched_at')->first();
+            if (! $snapshot) {
+                throw new RuntimeException('ไม่พบเนื้อหาต้นทางสำหรับสร้าง facts พร้อมหลักฐาน');
+            }
+            $facts = $this->factEvidence->validate(
+                $this->factExtractor->extract($post->article->title, $snapshot->normalized_excerpt),
+                $snapshot->normalized_excerpt,
+            );
+            $metadata['facts'] = $facts;
+            $post->update(['metadata' => $metadata]);
         }
         $draft = ['title' => mb_substr($post->draft_text, 0, 180), 'body' => $post->draft_text];
         $result = $this->factChecker->check($facts, $draft);
