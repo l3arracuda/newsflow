@@ -170,6 +170,47 @@ class ReviewApprovalTest extends TestCase
         Storage::disk('local')->assertExists($old->path);
     }
 
+    public function test_manual_image_is_imported_by_article_id_and_locked_as_the_approved_asset(): void
+    {
+        [$article, $post, $admin] = $this->reviewCase();
+        $filename = "manual-news-images/{$article->id}.png";
+        $image = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j4XcAAAAASUVORK5CYII=', true);
+        Storage::disk('local')->put($filename, $image);
+
+        $this->actingAs($admin)->post(route('review.image.import-manual', $article), ['post' => $post->id])->assertRedirect()->assertSessionHasNoErrors();
+
+        $manual = $post->assets()->orderByDesc('version')->firstOrFail();
+        $this->assertSame('manual', $manual->provider);
+        $this->assertSame(2, $manual->version);
+        $this->assertSame($article->id, $manual->metadata['article_id']);
+        Storage::disk('local')->assertExists($filename);
+        Storage::disk('local')->assertExists($manual->path);
+        $this->assertDatabaseHas('audit_logs', ['event' => 'review.manual_image_imported']);
+
+        $this->actingAs($admin)->post(route('review.image.import-manual', $article), ['post' => $post->id])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame(2, $post->assets()->count());
+
+        $this->post(route('review.approve', $post))->assertRedirect();
+        $approvedAssets = $post->fresh()->metadata['approval_snapshot']['asset_versions'];
+        $this->assertCount(1, $approvedAssets);
+        $this->assertSame($manual->id, $approvedAssets[0]['id']);
+
+        $this->actingAs($admin)->post(route('review.image.import-manual', $article), ['post' => $post->id])->assertRedirect()->assertSessionHasErrors('review');
+        $this->assertSame(2, $post->assets()->count());
+    }
+
+    public function test_manual_image_import_rejects_invalid_image_bytes(): void
+    {
+        [$article, $post, $admin] = $this->reviewCase();
+        Storage::disk('local')->put("manual-news-images/{$article->id}.png", 'not an image');
+
+        $this->actingAs($admin)->post(route('review.image.import-manual', $article), ['post' => $post->id])
+            ->assertRedirect()->assertSessionHasErrors('review');
+
+        $this->assertSame(1, $post->assets()->count());
+        $this->assertDatabaseMissing('generated_assets', ['provider' => 'manual']);
+    }
+
     public function test_reject_records_decision_and_changes_article_status(): void
     {
         [$article, $post, $admin] = $this->reviewCase(withImage: false);

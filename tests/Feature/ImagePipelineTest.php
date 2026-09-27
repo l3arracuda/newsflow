@@ -54,6 +54,22 @@ class ImagePipelineTest extends TestCase
         $this->assertSame(1, $asset->generatedPost->assets()->count());
     }
 
+    public function test_manual_driver_skips_automatic_image_generation_without_fixture_or_api_call(): void
+    {
+        Queue::fake();
+        config(['services.image_generation.driver' => 'manual']);
+        $article = $this->articleWithSnapshot();
+        $run = app(WorkflowStarter::class)->start($article)['run'];
+
+        app(WorkflowEngine::class)->run($run->id);
+
+        $imageStep = $run->steps()->where('step_key', 'image_generate')->firstOrFail();
+        $this->assertSame(WorkflowRunStatus::SUCCEEDED, $run->fresh()->status);
+        $this->assertTrue($imageStep->metadata['manual_asset_pending']);
+        $this->assertSame('manual', $imageStep->metadata['provider']);
+        $this->assertSame(0, $article->generatedPosts()->firstOrFail()->assets()->count());
+    }
+
     public function test_failed_provider_fails_workflow_without_creating_asset(): void
     {
         Queue::fake();

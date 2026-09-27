@@ -89,20 +89,21 @@
                     </article>
 
                     <article class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                        <div class="flex flex-wrap items-center justify-between gap-2"><h2 class="font-semibold text-slate-900">ภาพประกอบที่สร้าง</h2>
-                            <form method="POST" action="{{ route('review.image.regenerate', $post) }}">@csrf<button class="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">สร้างภาพ version ใหม่</button></form>
+                        <div class="flex flex-wrap items-center justify-between gap-2"><h2 class="font-semibold text-slate-900">ภาพประกอบ</h2>
+                            <form method="POST" action="{{ route('review.image.import-manual', $article) }}">@csrf<input type="hidden" name="post" value="{{ $post->id }}"><button class="rounded-md border border-blue-300 px-3 py-1.5 text-xs font-semibold text-blue-800 hover:bg-blue-50">นำเข้าภาพจากโฟลเดอร์</button></form>
                         </div>
+                        <p class="mt-2 text-xs leading-5 text-slate-600">วางภาพที่คุณสร้างเองใน <code class="break-all">{{ $manualImageDirectory }}</code> โดยตั้งชื่อ <code>{{ $article->id }}.png</code> (หรือ .jpg, .jpeg, .webp) แล้วกดนำเข้า ระบบจะเก็บสำเนาเป็น version ใหม่</p>
                         @if ($post->assets->isNotEmpty())
                             <div class="mt-3 grid gap-3 sm:grid-cols-2">
                                 @foreach ($post->assets as $asset)
                                     <figure class="overflow-hidden rounded-lg border border-slate-200">
                                         <img src="{{ route('generated-assets.preview', $asset) }}" alt="ภาพประกอบที่สร้างใหม่ ไม่ใช่ภาพเหตุการณ์จริง" class="aspect-square w-full bg-slate-100 object-contain">
-                                        <figcaption class="p-3 text-xs text-slate-600">ภาพ #{{ $asset->id }} · v{{ $asset->version }} · {{ $asset->provider }} · {{ $asset->width }}×{{ $asset->height }}<br>Prompt v{{ $asset->prompt_version }} · {{ Str::limit($asset->content_hash, 18) }}<br><span class="font-medium text-emerald-700">ภาพประกอบสร้างใหม่ ไม่ใช่ภาพข่าวจริง</span>@if ($asset->metadata['fake'] ?? false)<br><span class="text-amber-700">ภาพ fixture สำหรับทดสอบ</span>@endif</figcaption>
+                                        <figcaption class="p-3 text-xs text-slate-600">ภาพ #{{ $asset->id }} · v{{ $asset->version }} · {{ $asset->provider }} · {{ $asset->width }}×{{ $asset->height }}<br>{{ Str::limit($asset->content_hash, 18) }}<br><span class="font-medium {{ $asset->provider === 'manual' ? 'text-blue-700' : 'text-emerald-700' }}">{{ $asset->provider === 'manual' ? 'ภาพที่แนบจากโฟลเดอร์ข่าว' : 'ภาพประกอบสร้างใหม่ ไม่ใช่ภาพข่าวจริง' }}</span>@if ($asset->metadata['fake'] ?? false)<br><span class="text-amber-700">ภาพ fixture สำหรับทดสอบ</span>@endif</figcaption>
                                     </figure>
                                 @endforeach
                             </div>
                         @else
-                            <p class="mt-3 text-sm text-amber-700">ยังไม่มีภาพ เลือกสร้างภาพใหม่หรือระบุเหตุผลไม่ใช้ภาพในแบบอนุมัติ</p>
+                            <p class="mt-3 text-sm text-amber-700">ยังไม่มีภาพ ให้วางภาพตาม ID ข่าวในโฟลเดอร์ด้านบนแล้วกดนำเข้า หรือระบุเหตุผลไม่ใช้ภาพในแบบอนุมัติ</p>
                         @endif
                     </article>
                 </div>

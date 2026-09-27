@@ -111,6 +111,10 @@ class ReviewService
 
     public function regenerateImage(GeneratedPost $post, User $reviewer): array
     {
+        if (config('services.image_generation.driver') === 'manual') {
+            throw new RuntimeException('ระบบตั้งค่าให้ใช้ภาพที่แนบเองแล้ว กรุณาวางภาพตาม ID ข่าวและนำเข้าจากหน้า review');
+        }
+
         if ($post->status === GeneratedPostStatus::APPROVED) {
             $post = $this->createRevision($post, $reviewer, $post->draft_text, $post->metadata ?? [], 'review.image_revision_created');
         }
@@ -148,7 +152,7 @@ class ReviewService
                 throw new RuntimeException('การเลือกไม่ใช้ภาพต้องระบุเหตุผล');
             }
 
-            $assets = $noImage ? [] : $post->assets()->orderByDesc('version')->get(['id', 'version', 'content_hash'])->map(fn ($asset) => ['id' => $asset->id, 'version' => $asset->version, 'content_hash' => $asset->content_hash])->values()->all();
+            $assets = $noImage ? [] : $post->assets()->orderByDesc('version')->limit(1)->get(['id', 'version', 'content_hash'])->map(fn ($asset) => ['id' => $asset->id, 'version' => $asset->version, 'content_hash' => $asset->content_hash])->values()->all();
             $snapshot = [
                 'post_id' => $post->id,
                 'post_version' => $post->version,

@@ -15,6 +15,10 @@ class GenerateImageProcessor implements WorkflowStepProcessor
 
     public function process(Article $article, WorkflowRun $run): array
     {
+        if (config('services.image_generation.driver') === 'manual') {
+            return ['manual_asset_pending' => true, 'provider' => 'manual'];
+        }
+
         $promptData = $run->steps()->where('step_key', 'image_prompt')->where('status', 'succeeded')->latest('attempt')->first()?->metadata['prompt_result'] ?? null;
         $post = GeneratedPost::query()->where('workflow_run_id', $run->id)->first();
         if (! is_array($promptData) || ! $post) {

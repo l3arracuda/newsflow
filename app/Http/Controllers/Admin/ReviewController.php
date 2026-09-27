@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Enums\ReviewDecisionType;
+use App\Images\Services\ManualNewsImageImporter;
 use App\Models\Article;
 use App\Models\GeneratedAsset;
 use App\Models\GeneratedPost;
@@ -33,6 +34,7 @@ class ReviewController
             'factCheck' => $metadata['fact_check'] ?? null,
             'factCheckCurrent' => $post && ($metadata['checked_draft_hash'] ?? null) === hash('sha256', $post->draft_text),
             'workflow' => $article->workflowRuns->first(),
+            'manualImageDirectory' => Storage::disk('local')->path('manual-news-images'),
         ]);
     }
 
@@ -73,6 +75,14 @@ class ReviewController
     public function regenerateImage(Request $request, GeneratedPost $post, ReviewService $reviews): RedirectResponse
     {
         return $this->run($post, fn () => $reviews->regenerateImage($post, $request->user()), 'สร้างภาพ version ใหม่แล้ว โดยเก็บภาพเดิมไว้');
+    }
+
+    public function importManualImage(Request $request, Article $article, ManualNewsImageImporter $importer): RedirectResponse
+    {
+        $data = $request->validate(['post' => ['required', 'integer', 'min:1']]);
+        $post = $article->generatedPosts()->whereKey($data['post'])->firstOrFail();
+
+        return $this->run($post, fn () => ['post' => $post, 'asset' => $importer->import($article, $post, $request->user())], 'นำเข้าภาพสำหรับข่าว #'.$article->id.' แล้ว');
     }
 
     public function approve(Request $request, GeneratedPost $post, ReviewService $reviews): RedirectResponse

@@ -45,7 +45,7 @@ return [
     ],
 
     'image_generation' => [
-        'driver' => env('IMAGE_GENERATION_DRIVER', 'fake'),
+        'driver' => env('IMAGE_GENERATION_DRIVER', 'manual'),
         'api_key' => env('IMAGE_GENERATION_API_KEY'),
         'model' => env('IMAGE_GENERATION_MODEL', 'gpt-image-1'),
         'base_url' => env('IMAGE_GENERATION_BASE_URL', 'https://api.openai.com/v1'),

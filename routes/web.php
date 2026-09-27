@@ -23,6 +23,7 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::post('/generated-posts/{post}/rewrite/regenerate', [ReviewController::class, 'regenerateRewrite'])->name('review.rewrite.regenerate');
     Route::post('/generated-posts/{post}/fact-check', [ReviewController::class, 'rerunFactCheck'])->name('review.fact-check');
     Route::post('/generated-posts/{post}/image/regenerate', [ReviewController::class, 'regenerateImage'])->name('review.image.regenerate');
+    Route::post('/articles/{article}/review/manual-image', [ReviewController::class, 'importManualImage'])->name('review.image.import-manual');
     Route::post('/generated-posts/{post}/approve', [ReviewController::class, 'approve'])->name('review.approve');
     Route::post('/generated-posts/{post}/reject', [ReviewController::class, 'reject'])->name('review.reject');
     Route::post('/generated-posts/{post}/request-changes', [ReviewController::class, 'requestChanges'])->name('review.request-changes');

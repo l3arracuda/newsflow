@@ -42,7 +42,7 @@ ReviewApprovalTest: 11 passed (85 assertions)
 
 ### Full suite
 ```text
-87 passed (399 assertions)
+90 passed (426 assertions)
 Production asset build: passed
 git diff --check: passed
 ```
@@ -50,6 +50,7 @@ git diff --check: passed
 Test suite forces text and image drivers to `fake`, even when local `.env` enables paid providers.
 The rewrite processor appends source attribution if an AI provider omits the URL; regression tests cover this behavior.
 OpenAI image generation sends the configured `IMAGE_GENERATION_QUALITY` (default `low`) to the provider so image cost/quality is explicit.
+Manual image mode imports a validated image named with the article ID from `storage/app/private/manual-news-images/`; the approved snapshot records only the latest selected asset version.
 
 ## Manual verification
 1. Switch to `dev/phase-08-review-approval`, start the local Laravel app, and sign in with an admin account.
@@ -57,12 +58,14 @@ OpenAI image generation sends the configured `IMAGE_GENERATION_QUALITY` (default
 3. Try approving a draft with a failing/stale fact-check or without an image; confirm a reason is required for an override or explicit no-image approval.
 4. Approve a complete package and confirm the version snapshot/status is recorded but no publication is created or sent to Facebook.
 5. Edit an approved draft; confirm a new version is created and the new version must be checked and approved separately.
+6. For manual imagery, place `{article_id}.png` (or `.jpg`, `.jpeg`, `.webp`) in `storage/app/private/manual-news-images/`, then select “นำเข้าภาพจากโฟลเดอร์” on the review page. The source file stays in place and each changed image is copied into a new immutable asset version.
 
 ## Security / data notes
 - Review page, preview assets, and review actions are protected by admin middleware.
 - Approval overrides, no-image reasons, decisions, and version changes are recorded in audit/review history.
 - Generated asset previews are served through an authenticated route with a restricted MIME allowlist and private caching.
 - No live Facebook publishing or real external AI call is performed by approval; publication remains a separate later phase.
+- Set `IMAGE_GENERATION_DRIVER=manual` to avoid automatic image API calls and fake one-pixel fixtures; manual image import is required before approval unless the reviewer explicitly records a no-image reason.
 - No secrets are included in the phase changes.
 - For legacy successful runs containing Phase 04 placeholders, `news:workflow:reprocess-placeholder {articleId}` starts a fresh run only if no post has been approved or published; prior workflow and draft versions are preserved.
 
@@ -71,7 +74,8 @@ OpenAI image generation sends the configured `IMAGE_GENERATION_QUALITY` (default
 - Phase 08 ends at human approval. Facebook publishing is not included.
 
 ## Required user configuration
-- No new configuration is required for Phase 08. Existing Phase 07 provider and database setup is used.
+- Set `IMAGE_GENERATION_DRIVER=manual` in local `.env`, then clear Laravel's config cache. Keep `AI_TEXT_DRIVER` unchanged if AI text generation is still desired.
+- Drop one image named `{article_id}.png` (or `.jpg`, `.jpeg`, `.webp`) in `storage/app/private/manual-news-images/` before importing it from review.
 
 ## Acceptance checklist
 - [x] Complete pre-publication package is visible in one review workspace.
