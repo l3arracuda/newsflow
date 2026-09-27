@@ -50,6 +50,7 @@ return [
         'model' => env('IMAGE_GENERATION_MODEL', 'gpt-image-1'),
         'base_url' => env('IMAGE_GENERATION_BASE_URL', 'https://api.openai.com/v1'),
         'size' => env('IMAGE_GENERATION_SIZE', '1024x1024'),
+        'quality' => env('IMAGE_GENERATION_QUALITY', 'low'),
         'timeout' => (int) env('IMAGE_GENERATION_TIMEOUT', 90),
         'retries' => (int) env('IMAGE_GENERATION_RETRIES', 1),
         'disk' => env('IMAGE_GENERATION_DISK', 'local'),

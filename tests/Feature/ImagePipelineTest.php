@@ -101,7 +101,7 @@ class ImagePipelineTest extends TestCase
 
     public function test_openai_adapter_uses_mocked_base64_response_and_never_accepts_reference_images(): void
     {
-        config(['services.image_generation.api_key' => 'test-key', 'services.image_generation.model' => 'gpt-image-1']);
+        config(['services.image_generation.api_key' => 'test-key', 'services.image_generation.model' => 'gpt-image-1', 'services.image_generation.quality' => 'low']);
         $png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j4XcAAAAASUVORK5CYII=';
         Http::fake(['*/images/generations' => Http::response(['data' => [['b64_json' => $png]]])]);
 
@@ -111,6 +111,7 @@ class ImagePipelineTest extends TestCase
         $this->assertSame(base64_decode($png), $image->contents);
         Http::assertSent(fn ($request) => $request->url() === 'https://api.openai.com/v1/images/generations'
             && $request['model'] === 'gpt-image-1'
+            && $request['quality'] === 'low'
             && str_contains($request['prompt'], 'Avoid: logos')
             && ! array_key_exists('image', $request->data()));
     }

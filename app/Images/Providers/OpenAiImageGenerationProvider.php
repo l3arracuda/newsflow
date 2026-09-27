@@ -18,6 +18,10 @@ class OpenAiImageGenerationProvider implements ImageGenerationProvider
         if (! str_starts_with((string) config('services.image_generation.model'), 'gpt-image-')) {
             throw new RuntimeException('OpenAI image adapter expects a GPT image model that returns base64 image data.');
         }
+        $quality = config('services.image_generation.quality', 'low');
+        if (! in_array($quality, ['low', 'medium', 'high'], true)) {
+            throw new RuntimeException('Image quality must be low, medium, or high.');
+        }
         $response = Http::withToken($key)
             ->acceptJson()
             ->timeout((int) config('services.image_generation.timeout', 90))
@@ -26,6 +30,7 @@ class OpenAiImageGenerationProvider implements ImageGenerationProvider
                 'model' => config('services.image_generation.model'),
                 'prompt' => $prompt."\nAvoid: ".implode('; ', array_filter($options['avoid'] ?? [], 'is_string')),
                 'size' => config('services.image_generation.size', '1024x1024'),
+                'quality' => $quality,
                 'n' => 1,
                 'output_format' => 'png',
             ]);

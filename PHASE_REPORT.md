@@ -49,6 +49,7 @@ git diff --check: passed
 
 Test suite forces text and image drivers to `fake`, even when local `.env` enables paid providers.
 The rewrite processor appends source attribution if an AI provider omits the URL; regression tests cover this behavior.
+OpenAI image generation sends the configured `IMAGE_GENERATION_QUALITY` (default `low`) to the provider so image cost/quality is explicit.
 
 ## Manual verification
 1. Switch to `dev/phase-08-review-approval`, start the local Laravel app, and sign in with an admin account.
