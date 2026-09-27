@@ -1,41 +1,43 @@
-# Phase 06 — AI Text Pipeline
+# Phase 07 — Image Prompt & Generated Asset Pipeline
 
 ## Acceptance gate: PASS
 
-The workflow's fact extraction, summary, rewrite, and fact-check steps now use provider contracts and validated structured output. The default driver is a deterministic fake provider; OpenAI is available through environment configuration. This phase does not include the live provider call, image pipeline, review UI, or publishing.
+Phase 07 replaces the workflow's image prompt and image generation placeholders with an editorial prompt builder, provider abstraction, private storage adapter, traceable asset records, and a regenerate command. The default provider is a small fake PNG fixture; no live image API was called.
 
 ## Delivered
 
-- Provider and role contracts: `AiTextProvider`, `FactExtractor`, `ArticleSummarizer`, `SocialPostRewriter`, and `FactConsistencyChecker`.
-- Fake provider for repeatable local/testing use and an OpenAI Chat Completions adapter using strict JSON Schema output, configurable model, timeout, retries, and API parameters.
-- Prompt-template columns for system/instruction text, parameters, active version, and `updated_by`, while retaining legacy fields.
-- Seeded version-1 prompt templates: `FACT_EXTRACT`, `NEWS_SUMMARY`, `FACEBOOK_REWRITE`, and `FACT_CHECK`.
-- Facts, summary, rewrite, and structured consistency results with prompt id/version, model, usage, and check timestamp provenance.
-- Draft posts link uniquely to a workflow run so retry does not duplicate draft versions.
-- Failed consistency checks set the article status to `flagged` and do not allow `ready_for_review`.
-- Source text is sent as untrusted evidence, separate from trusted prompt instructions; no tools are provided to the model.
+- `ImagePromptBuilder`, `ImageGenerationProvider`, and `GeneratedAssetStorage` contracts.
+- Fact-based editorial prompt generation with category/sensitivity metadata and conservative non-graphic guidance for sensitive stories.
+- Fake provider for tests and configurable OpenAI GPT image adapter returning base64 image data; model, timeout, retry, output size, and storage disk are configuration-driven.
+- Generated asset schema includes workflow association, provider ID, file dimensions, content hash, prompt text/version, and status.
+- File type/dimensions/size validation before private storage; metadata identifies generated illustrations and records that no source image reference was used.
+- Workflow retry is idempotent by workflow run; regeneration creates a higher asset version without deleting old files.
+- `news:image:regenerate {generatedPostId}` command and admin article view details for assets.
+- Audit event on generated asset creation.
+
+The OpenAI adapter is limited to GPT image models, which return base64 data by default; no remote source image URL is downloaded or passed as an image reference.
 
 ## Verification
 
-- `php artisan test --filter=AiTextPipelineTest` — PASS, 6 tests.
-- `php artisan test` — PASS, 66 tests / 271 assertions.
+- `php artisan test --filter=ImagePipelineTest` — PASS, 6 tests / 30 assertions.
+- `php artisan test` — PASS, 72 tests / 301 assertions.
 - `vendor\\bin\\pint --test app database tests routes config` — PASS.
 - `npm run build` — PASS (59 modules).
-- Provider tests use a mocked HTTP response; no live AI API call or billing occurred.
-- Production/local XAMPP database migration was not run by this task.
+- OpenAI adapter test uses a mocked HTTP response only; no external API call or billing occurred.
+- Live XAMPP database migration was not run by this task.
 
-## Manual test on the local setup
+## Manual test on XAMPP
 
-1. On branch `dev/phase-06-ai-text-pipeline`, run `php artisan migrate` and `php artisan db:seed`.
-2. Keep `AI_TEXT_DRIVER=fake` in `.env` for a no-cost local run. Start the app/queue the same way as the prior phase.
-3. Start processing a fetched article with a snapshot using the existing workflow command or UI. Open its workflow details and verify `extract_facts`, `summarize`, `rewrite`, and `fact_check` all succeed; inspect the prompt/model provenance and structured output under each step.
-4. Open the article details and verify one draft exists, its body includes source attribution and URL, and its metadata is not marked placeholder.
-5. To test the blocked-review path without a real provider, automated coverage injects a fake fact-check response with unsupported claims; expected outcome is article status `flagged`, workflow complete, and no `article.ready_for_review` audit event.
-6. To enable real provider calls deliberately, set `AI_TEXT_DRIVER=openai`, fill `AI_TEXT_API_KEY`, choose `AI_TEXT_MODEL`, and clear cached configuration/restart queue workers. This can incur API charges. Do not put the key in Git.
+1. Switch to `dev/phase-07-image-pipeline`, then run `php artisan migrate` and `php artisan db:seed`.
+2. Leave `IMAGE_GENERATION_DRIVER=fake` in `.env` for a no-cost test. The fake provider produces a tiny fixture image, not a usable editorial illustration.
+3. Create a fresh workflow using an article with a snapshot and extracted facts. Previously completed Phase 04 workflows will not rerun automatically; discover/fetch a new article or start an eligible new workflow.
+4. Open the workflow detail and verify `image_prompt` and `image_generate` succeeded. Open the article detail and check the generated-illustration marker, provider, dimensions, prompt version, checksum, and storage path.
+5. Run `php artisan news:image:regenerate <generatedPostId>` twice. Each run should create the next asset version while earlier versions remain present. The generated post ID is visible in the article detail page.
+6. Only when intentionally ready to use a paid provider, set `IMAGE_GENERATION_DRIVER=openai`, set `IMAGE_GENERATION_API_KEY`, select an accessible `IMAGE_GENERATION_MODEL` beginning with `gpt-image-`, clear cached config, and restart queue workers. This can incur API charges.
 
 ## Checkpoint
 
-- Branch: `dev/phase-06-ai-text-pipeline`
+- Branch: `dev/phase-07-image-pipeline`
 - Commit: recorded after final verification.
-- Merge/tag: not performed; awaiting review.
-- Phase 07: not started.
+- Merge/tag: not performed; awaiting user review.
+- Phase 08: not started.

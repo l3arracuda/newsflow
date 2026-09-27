@@ -10,12 +10,21 @@ use App\AI\Contracts\SocialPostRewriter;
 use App\AI\FakeAiTextProvider;
 use App\AI\OpenAiTextProvider;
 use App\AI\Pipelines\AiTextPipeline;
+use App\Images\Contracts\GeneratedAssetStorage;
+use App\Images\Contracts\ImageGenerationProvider;
+use App\Images\Contracts\ImagePromptBuilder;
+use App\Images\Providers\FakeImageGenerationProvider;
+use App\Images\Providers\OpenAiImageGenerationProvider;
+use App\Images\Services\EditorialImagePromptBuilder;
+use App\Images\Services\LaravelGeneratedAssetStorage;
 use App\News\Adapters\SourceAdapterRegistry;
 use App\News\Adapters\ThaiRath\ThaiRathAdapter;
 use App\Workflows\Processors\CheckFactsProcessor;
 use App\Workflows\Processors\DiscoveredArticleProcessor;
 use App\Workflows\Processors\ExtractFactsProcessor;
 use App\Workflows\Processors\FetchDetailProcessor;
+use App\Workflows\Processors\Images\BuildImagePromptProcessor;
+use App\Workflows\Processors\Images\GenerateImageProcessor;
 use App\Workflows\Processors\PlaceholderProcessor;
 use App\Workflows\Processors\RewritePostProcessor;
 use App\Workflows\Processors\SummarizeArticleProcessor;
@@ -33,6 +42,11 @@ class AppServiceProvider extends ServiceProvider
             ? $app->make(OpenAiTextProvider::class)
             : $app->make(FakeAiTextProvider::class));
         $this->app->singleton(AiTextPipeline::class);
+        $this->app->bind(ImagePromptBuilder::class, EditorialImagePromptBuilder::class);
+        $this->app->bind(GeneratedAssetStorage::class, LaravelGeneratedAssetStorage::class);
+        $this->app->bind(ImageGenerationProvider::class, fn ($app) => config('services.image_generation.driver') === 'openai'
+            ? $app->make(OpenAiImageGenerationProvider::class)
+            : $app->make(FakeImageGenerationProvider::class));
         foreach ([FactExtractor::class, ArticleSummarizer::class, SocialPostRewriter::class, FactConsistencyChecker::class] as $contract) {
             $this->app->bind($contract, AiTextPipeline::class);
         }
@@ -49,8 +63,10 @@ class AppServiceProvider extends ServiceProvider
                 'summarize' => $app->make(SummarizeArticleProcessor::class),
                 'rewrite' => $app->make(RewritePostProcessor::class),
                 'fact_check' => $app->make(CheckFactsProcessor::class),
+                'image_prompt' => $app->make(BuildImagePromptProcessor::class),
+                'image_generate' => $app->make(GenerateImageProcessor::class),
             ];
-            foreach (['image_prompt', 'image_generate', 'awaiting_review'] as $step) {
+            foreach (['awaiting_review'] as $step) {
                 $processors[$step] = new PlaceholderProcessor($step);
             }
 

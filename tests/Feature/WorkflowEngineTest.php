@@ -22,6 +22,7 @@ use Database\Seeders\AiPromptTemplateSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -33,6 +34,7 @@ class WorkflowEngineTest extends TestCase
     {
         parent::setUp();
         (new AiPromptTemplateSeeder)->run();
+        Storage::fake('local');
     }
 
     public function test_happy_path_records_all_steps_and_reaches_awaiting_review(): void

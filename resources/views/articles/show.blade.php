@@ -67,14 +67,21 @@
             <div class="space-y-4 p-5">
                 @forelse ($article->generatedPosts as $post)
                     <article class="rounded-lg border border-slate-200 p-4">
-                        <div class="flex flex-wrap items-center justify-between gap-2"><h3 class="font-medium text-slate-800">Draft รุ่น {{ $post->version }}</h3>@include('partials.status-badge', ['status' => $post->status])</div>
+                        <div class="flex flex-wrap items-center justify-between gap-2"><h3 class="font-medium text-slate-800">Draft #{{ $post->id }} · รุ่น {{ $post->version }}</h3>@include('partials.status-badge', ['status' => $post->status])</div>
                         @if (($post->metadata['placeholder'] ?? false) === true)<p class="mt-2 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">เนื้อหานี้เป็น placeholder สำหรับทดสอบ ไม่ใช่โพสต์พร้อมเผยแพร่</p>@endif
                         <div class="mt-3 whitespace-pre-wrap break-words rounded-lg bg-slate-50 p-3 text-sm text-slate-700">{{ $post->draft_text }}</div>
                         <p class="mt-2 text-xs text-slate-500">ที่มา: {{ $post->source_attribution }} · <a href="{{ $post->source_url }}" target="_blank" rel="noopener noreferrer" class="text-blue-700 hover:underline">ลิงก์ต้นทาง</a></p>
                         @if ($post->reviewDecisions->isNotEmpty())<p class="mt-2 text-xs text-slate-600">ผลตรวจทานล่าสุด: {{ $post->reviewDecisions->sortByDesc('decided_at')->first()->decision }} · {{ $post->reviewDecisions->sortByDesc('decided_at')->first()->user?->name ?? 'ระบบ' }}</p>@endif
                         <div class="mt-4 grid gap-2 sm:grid-cols-2">
                             @forelse ($post->assets as $asset)
-                                <div class="rounded-lg border border-dashed border-slate-300 p-3 text-xs text-slate-600">สื่อ: {{ $asset->provider }} · {{ $asset->mime_type ?? 'ชนิดไฟล์ไม่ระบุ' }} · {{ $asset->path }} @if ($asset->metadata['placeholder'] ?? false)<span class="text-amber-700">(placeholder)</span>@endif</div>
+                                <div class="rounded-lg border border-dashed border-slate-300 p-3 text-xs text-slate-600">
+                                    <p>ภาพ #{{ $asset->id }} · รุ่น {{ $asset->version }} · {{ $asset->provider }} · {{ $asset->width }}×{{ $asset->height }} · {{ $asset->mime_type ?? 'ชนิดไฟล์ไม่ระบุ' }}</p>
+                                    <p class="mt-1">Prompt v{{ $asset->prompt_version }} · SHA-256 {{ Str::limit($asset->content_hash, 20) }} · {{ $asset->status }}</p>
+                                    @if ($asset->metadata['generated_illustration'] ?? false)<p class="mt-1 font-medium text-emerald-700">ภาพประกอบที่สร้างใหม่ ไม่ใช่ภาพเหตุการณ์จริง</p>@endif
+                                    @if ($asset->metadata['fake'] ?? false)<p class="mt-1 font-medium text-amber-700">ไฟล์ทดสอบจาก fake provider (ภาพตัวอย่างขนาดเล็ก ไม่ใช่ภาพใช้งานจริง)</p>@endif
+                                    @if ($asset->prompt_text)<details class="mt-2"><summary class="cursor-pointer font-medium">ดู prompt ที่ใช้</summary><p class="mt-1 whitespace-pre-wrap">{{ $asset->prompt_text }}</p></details>@endif
+                                    <p class="mt-1 break-all">ไฟล์: {{ $asset->disk }} / {{ $asset->path }}</p>
+                                </div>
                             @empty
                                 <p class="text-xs text-slate-500">ยังไม่มีสื่อแนบ</p>
                             @endforelse
