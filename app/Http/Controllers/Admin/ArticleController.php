@@ -8,6 +8,7 @@ use App\Models\Source;
 use App\News\Exceptions\SourceFetchException;
 use App\News\Services\ArticleDiscoveryService;
 use App\Support\SafeErrorPresenter;
+use App\Workflows\WorkflowStarter;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -49,6 +50,26 @@ class ArticleController
             'candidates' => $result['candidates'],
             'created' => $result['created'],
             'existing' => $result['existing'],
+        ]);
+    }
+
+    public function startWorkflow(Article $article, WorkflowStarter $starter): RedirectResponse
+    {
+        try {
+            $result = $starter->start($article);
+        } catch (Throwable $exception) {
+            Log::warning('Manual article workflow start failed.', [
+                'article_id' => $article->id,
+                'error_class' => $exception::class,
+            ]);
+
+            return back()->with('workflow_start_error', 'เริ่ม Workflow ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
+        }
+
+        return back()->with('workflow_start_result', [
+            'run_id' => $result['run']->id,
+            'status' => $result['run']->status->value,
+            'dispatched' => $result['dispatched'],
         ]);
     }
 

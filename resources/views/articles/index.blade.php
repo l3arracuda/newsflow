@@ -21,6 +21,19 @@
         @if (session('discovery_error'))
             <div role="alert" class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{{ session('discovery_error') }}</div>
         @endif
+        @if (session('workflow_start_result'))
+            <div role="status" class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                @if (session('workflow_start_result.dispatched'))
+                    เริ่ม Workflow แล้ว (Run #{{ session('workflow_start_result.run_id') }})
+                    @if (session('workflow_start_result.status') === 'pending') งานอยู่ในคิว หากยังไม่เริ่มทำงาน ให้เปิด `php artisan queue:work` ใน Terminal อีกหน้าต่าง@endif
+                @else
+                    ข่าวนี้มี Workflow ที่กำลังทำงานหรือทำสำเร็จแล้ว (Run #{{ session('workflow_start_result.run_id') }})
+                @endif
+            </div>
+        @endif
+        @if (session('workflow_start_error'))
+            <div role="alert" class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{{ session('workflow_start_error') }}</div>
+        @endif
         <form method="GET" action="{{ route('articles.index') }}" class="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-6">
             <label class="text-sm text-slate-600">คำค้น
                 <input name="q" value="{{ $filters['q'] ?? '' }}" placeholder="ค้นจากหัวข้อข่าว" class="mt-1 block w-full rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-blue-500">
@@ -54,7 +67,7 @@
             <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4"><h2 class="font-semibold text-slate-900">รายการข่าว</h2><span class="text-sm text-slate-500">{{ $articles->total() }} รายการ</span></div>
             <div class="overflow-x-auto">
                 <table class="min-w-[1050px] divide-y divide-slate-100 text-sm">
-                    <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500"><tr><th class="px-4 py-3">วันที่ค้นพบ</th><th class="px-4 py-3">ข่าว</th><th class="px-4 py-3">แหล่งข่าว</th><th class="px-4 py-3">สถานะข่าว</th><th class="px-4 py-3">Workflow</th><th class="px-4 py-3">ตรวจทาน</th><th class="px-4 py-3">เผยแพร่</th></tr></thead>
+                    <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500"><tr><th class="px-4 py-3">วันที่ค้นพบ</th><th class="px-4 py-3">ข่าว</th><th class="px-4 py-3">แหล่งข่าว</th><th class="px-4 py-3">สถานะข่าว</th><th class="px-4 py-3">Workflow</th><th class="px-4 py-3">ตรวจทาน</th><th class="px-4 py-3">เผยแพร่</th><th class="px-4 py-3">ดำเนินการ</th></tr></thead>
                     <tbody class="divide-y divide-slate-100">
                         @forelse ($articles as $article)
                             <tr class="align-top hover:bg-slate-50">
@@ -65,9 +78,19 @@
                                 <td class="px-4 py-4">@if ($article->latestWorkflowRun)<a href="{{ route('workflows.show', $article->latestWorkflowRun) }}">@include('partials.status-badge', ['status' => $article->latestWorkflowRun->status])</a>@else<span class="text-slate-400">ยังไม่เริ่ม</span>@endif</td>
                                 <td class="px-4 py-4">@include('partials.status-badge', ['status' => $article->latestGeneratedPost?->status])</td>
                                 <td class="px-4 py-4">@include('partials.status-badge', ['status' => $article->latestGeneratedPost?->latestPublication?->status])</td>
+                                <td class="whitespace-nowrap px-4 py-4">
+                                    @if (! $article->latestWorkflowRun || in_array($article->latestWorkflowRun->status->value, ['failed', 'cancelled'], true))
+                                        <form method="POST" action="{{ route('articles.workflow.start', $article) }}" onsubmit="this.querySelector('button').disabled = true; this.querySelector('button').textContent = 'กำลังเริ่ม…';">
+                                            @csrf
+                                            <button class="rounded-lg bg-blue-700 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-800 disabled:cursor-wait disabled:opacity-70">{{ $article->latestWorkflowRun ? 'เริ่มใหม่' : 'เริ่ม Workflow' }}</button>
+                                        </form>
+                                    @else
+                                        <span class="text-xs text-slate-400">—</span>
+                                    @endif
+                                </td>
                             </tr>
                         @empty
-                            <tr><td colspan="7" class="px-5 py-12 text-center text-slate-500">ไม่พบข่าวตามเงื่อนไข</td></tr>
+                            <tr><td colspan="8" class="px-5 py-12 text-center text-slate-500">ไม่พบข่าวตามเงื่อนไข</td></tr>
                         @endforelse
                     </tbody>
                 </table>

@@ -16,6 +16,7 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
     Route::get('/articles', [ArticleController::class, 'index'])->name('articles.index');
     Route::post('/articles/discover', [ArticleController::class, 'discoverLatest'])->name('articles.discover');
+    Route::post('/articles/{article}/workflow/start', [ArticleController::class, 'startWorkflow'])->name('articles.workflow.start');
     Route::get('/articles/{article}', [ArticleController::class, 'show'])->name('articles.show');
     Route::get('/articles/{article}/review', [ReviewController::class, 'show'])->name('articles.review');
     Route::get('/generated-assets/{asset}/preview', [ReviewController::class, 'preview'])->name('generated-assets.preview');
