@@ -8,4 +8,5 @@ enum PublicationStatus: string
     case PUBLISHING = 'publishing';
     case PUBLISHED = 'published';
     case FAILED = 'failed';
+    case UNCERTAIN = 'uncertain';
 }

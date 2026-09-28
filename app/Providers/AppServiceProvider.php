@@ -19,6 +19,9 @@ use App\Images\Services\EditorialImagePromptBuilder;
 use App\Images\Services\LaravelGeneratedAssetStorage;
 use App\News\Adapters\SourceAdapterRegistry;
 use App\News\Adapters\ThaiRath\ThaiRathAdapter;
+use App\Publishing\Contracts\SocialPublisher;
+use App\Publishing\Providers\FakeFacebookPublisher;
+use App\Publishing\Providers\MetaFacebookPublisher;
 use App\Workflows\Processors\CheckFactsProcessor;
 use App\Workflows\Processors\DiscoveredArticleProcessor;
 use App\Workflows\Processors\ExtractFactsProcessor;
@@ -38,6 +41,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->bind(SocialPublisher::class, fn ($app) => config('services.facebook.driver') === 'meta'
+            ? $app->make(MetaFacebookPublisher::class)
+            : $app->make(FakeFacebookPublisher::class));
         $this->app->bind(AiTextProvider::class, fn ($app) => config('services.ai_text.driver') === 'openai'
             ? $app->make(OpenAiTextProvider::class)
             : $app->make(FakeAiTextProvider::class));

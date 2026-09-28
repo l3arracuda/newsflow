@@ -58,4 +58,13 @@ return [
         'fake_fail' => (bool) env('IMAGE_GENERATION_FAKE_FAIL', false),
     ],
 
+    'facebook' => [
+        'driver' => env('PUBLISH_DRIVER', 'fake'),
+        'auto_publish' => (bool) env('AUTO_PUBLISH', false),
+        'graph_version' => env('META_GRAPH_VERSION'),
+        'page_id' => env('META_PAGE_ID'),
+        'page_access_token' => env('META_PAGE_ACCESS_TOKEN'),
+        'timeout' => (int) env('META_PUBLISH_TIMEOUT', 30),
+    ],
+
 ];

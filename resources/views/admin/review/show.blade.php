@@ -31,8 +31,30 @@
         @else
             <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div><p class="font-semibold text-slate-900">Draft #{{ $post->id }} · Version {{ $post->version }}</p><p class="mt-1 text-xs text-slate-500">ที่มา: {{ $post->source_attribution }} · {{ $post->source_url }}</p></div>
-                <p class="text-xs text-slate-500">Approve จะบันทึกฉบับตรวจรับเท่านั้น ไม่ได้โพสต์ออกไป</p>
+                <p class="text-xs text-slate-500">การอนุมัติจะบันทึกฉบับตรวจรับเท่านั้น ต้องกดเผยแพร่แยกอีกครั้ง</p>
             </div>
+
+            @php($latestPublication = $post->publications->first())
+            <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                        <h2 class="font-semibold text-slate-900">สถานะเผยแพร่ Facebook</h2>
+                        @if ($latestPublication)
+                            <p class="mt-1 text-sm text-slate-600">สถานะ: {{ $latestPublication->status->value }} · {{ $latestPublication->published_at?->format('d/m/Y H:i:s') ?? 'ยังไม่มีเวลายืนยัน' }}</p>
+                            @if ($latestPublication->external_url)<a class="mt-1 inline-block text-sm text-blue-700 hover:underline" href="{{ $latestPublication->external_url }}" target="_blank" rel="noopener noreferrer">เปิดโพสต์ Facebook ↗</a>@endif
+                            @if ($latestPublication->status === \App\Enums\PublicationStatus::UNCERTAIN)<p class="mt-2 text-sm text-amber-800">ห้ามกดซ้ำจนกว่าจะตรวจหน้าเพจ เพราะระบบไม่ได้รับผลยืนยัน</p>@endif
+                            @if ($latestPublication->status === \App\Enums\PublicationStatus::FAILED && !empty($latestPublication->metadata['failure_reason']))<p class="mt-2 text-sm text-red-700">{{ $latestPublication->metadata['failure_reason'] }}</p>@endif
+                        @else
+                            <p class="mt-1 text-sm text-slate-600">ยังไม่มีรายการเผยแพร่</p>
+                        @endif
+                    </div>
+                    @if ($post->status === \App\Enums\GeneratedPostStatus::APPROVED && (!$latestPublication || $latestPublication->status === \App\Enums\PublicationStatus::FAILED))
+                        <form method="POST" action="{{ route('review.publish', $post) }}" onsubmit="return confirm('ยืนยันเผยแพร่ข้อความและภาพฉบับที่อนุมัติไปยัง Facebook Page หรือไม่?')">@csrf
+                            <button class="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800">{{ $latestPublication ? 'ลองเผยแพร่อีกครั้ง' : 'เผยแพร่ไป Facebook' }}</button>
+                        </form>
+                    @endif
+                </div>
+            </section>
 
             <section class="grid gap-5 xl:grid-cols-2">
                 <div class="space-y-5">

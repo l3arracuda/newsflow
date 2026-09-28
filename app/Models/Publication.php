@@ -6,6 +6,7 @@ use App\Enums\PublicationStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class Publication extends Model
 {
@@ -21,5 +22,10 @@ class Publication extends Model
     public function generatedPost(): BelongsTo
     {
         return $this->belongsTo(GeneratedPost::class);
+    }
+
+    public function auditLogs(): MorphMany
+    {
+        return $this->morphMany(AuditLog::class, 'entity');
     }
 }

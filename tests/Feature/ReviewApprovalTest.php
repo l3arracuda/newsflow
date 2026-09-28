@@ -5,13 +5,21 @@ namespace Tests\Feature;
 use App\AI\Contracts\SocialPostRewriter;
 use App\Enums\ArticleStatus;
 use App\Enums\GeneratedPostStatus;
+use App\Enums\PublicationStatus;
 use App\Enums\ReviewDecisionType;
 use App\Enums\WorkflowRunStatus;
 use App\Enums\WorkflowStepStatus;
 use App\Models\Source;
 use App\Models\User;
+use App\Publishing\Contracts\SocialPublisher;
+use App\Publishing\DTO\PublicationRequest;
+use App\Publishing\DTO\PublishResult;
+use App\Publishing\Exceptions\DefinitivePublishFailure;
+use App\Publishing\Exceptions\UncertainPublishOutcome;
+use App\Publishing\Providers\MetaFacebookPublisher;
 use Database\Seeders\AiPromptTemplateSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -66,6 +74,87 @@ class ReviewApprovalTest extends TestCase
         $this->assertSame(ReviewDecisionType::APPROVE, $approved->reviewDecisions()->firstOrFail()->decision);
         $this->assertDatabaseHas('audit_logs', ['event' => 'review.approved', 'actor_id' => $admin->id]);
         $this->assertDatabaseCount('publications', 0);
+    }
+
+    public function test_approved_post_publishes_once_and_records_external_result_and_audit(): void
+    {
+        [$article, $post, $admin] = $this->reviewCase();
+        config(['services.facebook.driver' => 'fake']);
+        $this->actingAs($admin)->post(route('review.approve', $post))->assertRedirect();
+
+        $this->post(route('review.publish', $post))->assertRedirect();
+        $publication = $post->publications()->firstOrFail();
+        $this->assertSame(PublicationStatus::PUBLISHED, $publication->status);
+        $this->assertNotEmpty($publication->external_post_id);
+        $this->assertSame(GeneratedPostStatus::PUBLISHED, $post->fresh()->status);
+        $this->assertSame(ArticleStatus::PUBLISHED, $article->fresh()->status);
+        $this->assertDatabaseHas('audit_logs', ['event' => 'publication.published', 'actor_id' => $admin->id]);
+
+        $this->actingAs($admin)->post(route('review.publish', $post))->assertRedirect()->assertSessionHasErrors('review');
+        $this->assertDatabaseCount('publications', 1);
+    }
+
+    public function test_unapproved_or_modified_approval_snapshot_cannot_be_published(): void
+    {
+        [$article, $post, $admin] = $this->reviewCase();
+        config(['services.facebook.driver' => 'fake']);
+        $this->actingAs($admin)->post(route('review.publish', $post))->assertRedirect()->assertSessionHasErrors('review');
+        $this->actingAs($admin)->post(route('review.approve', $post))->assertRedirect();
+        $post->update(['draft_text' => $post->draft_text."\nเปลี่ยนหลังอนุมัติ"]);
+
+        $this->post(route('review.publish', $post))->assertRedirect()->assertSessionHasErrors('review');
+        $this->assertDatabaseCount('publications', 0);
+    }
+
+    public function test_definitive_provider_failure_can_be_retried_without_new_publication(): void
+    {
+        [$article, $post, $admin] = $this->reviewCase();
+        $this->actingAs($admin)->post(route('review.approve', $post))->assertRedirect();
+        $publisher = $this->mock(SocialPublisher::class);
+        $publisher->shouldReceive('publish')->once()->withArgs(fn (PublicationRequest $request) => str_contains($request->message, $post->source_url))
+            ->andThrow(new DefinitivePublishFailure('provider rejected'));
+        $this->post(route('review.publish', $post))->assertRedirect();
+        $this->assertSame(PublicationStatus::FAILED, $post->publications()->firstOrFail()->status);
+
+        $this->app->instance(SocialPublisher::class, new class implements SocialPublisher
+        {
+            public function publish(PublicationRequest $request): PublishResult
+            {
+                return new PublishResult('retry-success-1', 'https://facebook.test/posts/retry-success-1');
+            }
+        });
+        $this->post(route('review.publish', $post))->assertRedirect();
+        $this->assertDatabaseCount('publications', 1);
+        $this->assertSame(PublicationStatus::PUBLISHED, $post->publications()->firstOrFail()->status);
+    }
+
+    public function test_uncertain_provider_result_blocks_retry_to_avoid_duplicate_post(): void
+    {
+        [$article, $post, $admin] = $this->reviewCase();
+        $this->actingAs($admin)->post(route('review.approve', $post))->assertRedirect();
+        $publisher = $this->mock(SocialPublisher::class);
+        $publisher->shouldReceive('publish')->once()->andThrow(new UncertainPublishOutcome('timeout after sending'));
+
+        $this->post(route('review.publish', $post))->assertRedirect();
+        $this->assertSame(PublicationStatus::UNCERTAIN, $post->publications()->firstOrFail()->status);
+        $this->post(route('review.publish', $post))->assertRedirect()->assertSessionHasErrors('review');
+        $this->assertDatabaseCount('publications', 1);
+    }
+
+    public function test_meta_adapter_uses_configured_page_endpoint_and_keeps_token_out_of_url(): void
+    {
+        config(['services.facebook.graph_version' => 'v99.0', 'services.facebook.page_id' => 'page-123', 'services.facebook.page_access_token' => 'private-token']);
+        Http::fake(['graph.facebook.com/*' => Http::response(['id' => 'page-123_post-456'], 200)]);
+        $result = app(MetaFacebookPublisher::class)->publish(new PublicationRequest(
+            message: 'ข้อความข่าว', sourceUrl: 'https://example.com/news', idempotencyKey: 'stable-key',
+            imageContents: 'png-bytes', imageMimeType: 'image/png', imageFileName: 'news-1.png',
+        ));
+
+        $this->assertSame('page-123_post-456', $result->externalPostId);
+        Http::assertSent(fn ($request) => $request->method() === 'POST'
+            && str_contains($request->url(), '/v99.0/page-123/photos')
+            && ! str_contains($request->url(), 'private-token')
+            && $request->hasHeader('Authorization', 'Bearer private-token'));
     }
 
     public function test_fact_check_override_requires_and_records_reason(): void

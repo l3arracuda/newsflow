@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\PublicationStatus;
 use App\Enums\ReviewDecisionType;
 use App\Images\Services\ManualNewsImageImporter;
 use App\Models\Article;
 use App\Models\GeneratedAsset;
 use App\Models\GeneratedPost;
+use App\Publishing\PublicationService;
 use App\Reviews\ReviewService;
 use App\Support\SafeErrorPresenter;
 use Illuminate\Contracts\View\View;
@@ -19,7 +21,7 @@ class ReviewController
 {
     public function show(Request $request, Article $article): View
     {
-        $postQuery = $article->generatedPosts()->with(['assets' => fn ($query) => $query->orderByDesc('version'), 'reviewDecisions.user:id,name']);
+        $postQuery = $article->generatedPosts()->with(['assets' => fn ($query) => $query->orderByDesc('version'), 'reviewDecisions.user:id,name', 'publications' => fn ($query) => $query->latest('id')]);
         $post = $request->integer('post')
             ? $postQuery->whereKey($request->integer('post'))->firstOrFail()
             : $postQuery->latest('version')->first();
@@ -99,6 +101,24 @@ class ReviewController
         ]);
 
         return $this->run($post, fn () => $reviews->approve($post, $request->user(), $data['note'] ?? null, $data['override_reason'] ?? null, (bool) ($data['no_image'] ?? false), $data['no_image_reason'] ?? null), 'อนุมัติฉบับนี้แล้ว — ระบบยังไม่ได้เผยแพร่โพสต์');
+    }
+
+    public function publish(Request $request, GeneratedPost $post, PublicationService $publications): RedirectResponse
+    {
+        try {
+            $publication = $publications->publish($post, $request->user());
+            $message = match ($publication->status) {
+                PublicationStatus::PUBLISHED => 'เผยแพร่สำเร็จแล้ว',
+                PublicationStatus::UNCERTAIN => 'ยังยืนยันผลจาก Facebook ไม่ได้ ระบบจึงงด retry เพื่อป้องกันโพสต์ซ้ำ กรุณาตรวจหน้าเพจก่อน',
+                default => 'เผยแพร่ไม่สำเร็จ รายการนี้ retry ได้หลังตรวจสอบสาเหตุ',
+            };
+
+            return redirect()->route('articles.review', ['article' => $post->article_id, 'post' => $post->id])->with('status', $message);
+        } catch (Throwable $exception) {
+            $safe = app(SafeErrorPresenter::class)->sanitize($exception::class.': '.$exception->getMessage());
+
+            return back()->withErrors(['review' => $safe ?: 'เผยแพร่ไม่สำเร็จ กรุณาตรวจสอบการตั้งค่า']);
+        }
     }
 
     public function reject(Request $request, GeneratedPost $post, ReviewService $reviews): RedirectResponse

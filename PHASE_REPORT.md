@@ -87,7 +87,7 @@ The fact-check regression fixture verifies the Thai gold-price example, rejects 
 - Review page, preview assets, and review actions are protected by admin middleware.
 - Approval overrides, no-image reasons, decisions, and version changes are recorded in audit/review history.
 - Generated asset previews are served through an authenticated route with a restricted MIME allowlist and private caching.
-- No live Facebook publishing or real external AI call is performed by approval; publication remains a separate later phase.
+- Approval alone never publishes. Phase 09 adds a separate explicit Facebook publish action.
 - Set `IMAGE_GENERATION_DRIVER=manual` to avoid automatic image API calls and fake one-pixel fixtures; manual image import is required before approval unless the reviewer explicitly records a no-image reason.
 - No secrets are included in the phase changes.
 - For legacy successful runs containing Phase 04 placeholders, `news:workflow:reprocess-placeholder {articleId}` starts a fresh run only if no post has been approved or published; prior workflow and draft versions are preserved.
@@ -95,7 +95,7 @@ The fact-check regression fixture verifies the Thai gold-price example, rejects 
 ## Known limitations
 - Review content generation uses the project's configured AI/image providers; local tests use fakes and do not validate external provider credentials.
 - AI may still miss or misclassify qualitative claims; flagged text must now quote the current draft, and mismatch evidence must link back to a source quote validated against the saved source snapshot. Numeric facts with verified typed evidence are reconciled deterministically.
-- Phase 08 ends at human approval. Facebook publishing is not included.
+- Phase 08 ended at human approval; Phase 09 adds a separate opt-in publisher adapter (live credentials still unverified).
 
 ## Required user configuration
 - Set `IMAGE_GENERATION_DRIVER=manual` in local `.env`, then clear Laravel's config cache. Keep `AI_TEXT_DRIVER` unchanged if AI text generation is still desired.
@@ -114,3 +114,39 @@ The fact-check regression fixture verifies the Thai gold-price example, rejects 
 
 ## ACCEPTANCE GATE
 PASS
+
+---
+
+## Phase 09 checkpoint — Facebook Publisher
+
+### Status
+PASS — fake provider fully tested; Meta live publishing is implemented but not live-verified.
+
+### Delivered
+- Added `SocialPublisher` contract with fake and Meta Graph API implementations; `PUBLISH_DRIVER=fake` and `AUTO_PUBLISH=false` are defaults.
+- Added an explicit publish action on the admin review page. It is available only for the approved immutable post version and approved image asset; source attribution and URL are required.
+- Persisted publication state, external post id/link, timestamps, and sanitized outcome metadata in the existing publications table. Added publisher/user audit events.
+- Idempotency key is unique per approved post/version/content/image. A definitive provider rejection can be retried using the same publication record. A timeout or unconfirmed provider response becomes `uncertain` and is deliberately blocked from retry to avoid duplicate posts.
+- Meta settings are environment-driven (`META_GRAPH_VERSION`, `META_PAGE_ID`, `META_PAGE_ACCESS_TOKEN`, `META_PUBLISH_TIMEOUT`); no credentials are stored in database or source.
+- Meta adapter sends a Page photo post to the configured Graph API version and does not place the token in the URL. Automated tests use HTTP fakes and never make a live request.
+
+### Tests and verification
+- `ReviewApprovalTest`: 19 passed (147 assertions).
+- Full suite: 104 passed (501 assertions).
+- Pint check: passed; `npm run build`: passed; `git diff --check`: passed.
+- Added regression coverage for publish success, no duplicate on repeat, unapproved/edited snapshot rejection, definitive retry, uncertain outcome lockout, and configured Meta endpoint/token handling.
+
+### Optional live setup / verification
+1. In the local `.env` only, set `PUBLISH_DRIVER=meta`, `AUTO_PUBLISH=false`, `META_GRAPH_VERSION` to a currently supported version, `META_PAGE_ID`, and `META_PAGE_ACCESS_TOKEN` with the required Page publishing permission.
+2. Clear Laravel config cache and restart the app/queue workers. Never paste the token into chat or commit `.env`.
+3. Approve a test post with the correct source attribution and image, open its review page, and click “เผยแพร่ไป Facebook” once.
+4. Confirm the Page post, external link, timestamp, status, and audit record. Do not retry if the screen says the outcome is uncertain; first inspect the Page manually.
+
+### Limits / outstanding live checks
+- Meta credentials, app review/permission grants, selected Page, and current supported Graph API version were not available here; live publishing is **not live verified**.
+- Meta's official documentation endpoint returned HTTP 429 during this task. The API version is therefore supplied by configuration, not guessed or hard-coded. Confirm current endpoint and permission requirements in Meta's official [Page Photos reference](https://developers.facebook.com/docs/graph-api/reference/page/photos/) and [permissions reference](https://developers.facebook.com/docs/permissions/).
+- Network timeout is inherently ambiguous; the system blocks retry and requires a human to inspect the Page before any further action.
+
+## Current checkpoint
+- Branch: `dev/phase-09-facebook-publisher`
+- Acceptance gate for Phase 09: PASS for automated/fake behavior; live integration remains not live verified.
