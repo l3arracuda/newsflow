@@ -144,7 +144,7 @@ class SourceFetchingTest extends TestCase
 
     public function test_discovery_respects_robots_txt_before_requesting_listing(): void
     {
-        Http::fake(['*' => Http::response("User-agent: *\nDisallow: /news/society\n", 200)]);
+        Http::fake(['*' => Http::response("User-agent: *\nDisallow: /news/society\n", 200, ['Content-Type' => 'text/plain'])]);
         $source = $this->source();
 
         try {
@@ -159,7 +159,7 @@ class SourceFetchingTest extends TestCase
 
     public function test_robots_user_agent_group_is_respected_after_wildcard_group(): void
     {
-        Http::fake(['*' => Http::response("User-agent: *\nDisallow:\n\nUser-agent: NewsFlow\nDisallow: /news/society\n", 200)]);
+        Http::fake(['*' => Http::response("User-agent: *\nDisallow:\n\nUser-agent: NewsFlow\nDisallow: /news/society\n", 200, ['Content-Type' => 'text/plain'])]);
         $source = $this->source();
 
         try {

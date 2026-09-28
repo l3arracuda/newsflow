@@ -58,6 +58,19 @@ Artisan::command('newsflow:check-environment', function () {
         $errors[] = 'APP_KEY is missing. Run php artisan key:generate.';
     }
 
+    if (config('app.env') === 'production' && config('app.debug')) {
+        $errors[] = 'APP_DEBUG must be false in production.';
+    }
+    if (config('app.env') === 'production' && ! config('session.secure')) {
+        $errors[] = 'SESSION_SECURE_COOKIE must be enabled in production HTTPS.';
+    }
+    if (config('app.env') === 'production' && ! config('session.encrypt')) {
+        $errors[] = 'SESSION_ENCRYPT must be enabled in production.';
+    }
+    if (config('app.env') === 'production' && ! str_starts_with((string) config('app.url'), 'https://')) {
+        $errors[] = 'APP_URL must use HTTPS in production.';
+    }
+
     if (config('database.default') !== 'mysql') {
         $errors[] = 'DB_CONNECTION must be mysql for the application runtime.';
     }

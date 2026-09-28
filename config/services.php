@@ -61,6 +61,7 @@ return [
     'facebook' => [
         'driver' => env('PUBLISH_DRIVER', 'fake'),
         'auto_publish' => (bool) env('AUTO_PUBLISH', false),
+        'enabled' => (bool) env('PUBLISHING_ENABLED', true),
         'graph_version' => env('META_GRAPH_VERSION'),
         'page_id' => env('META_PAGE_ID'),
         'page_access_token' => env('META_PAGE_ACCESS_TOKEN'),

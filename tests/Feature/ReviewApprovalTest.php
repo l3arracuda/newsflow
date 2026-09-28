@@ -141,6 +141,27 @@ class ReviewApprovalTest extends TestCase
         $this->assertDatabaseCount('publications', 1);
     }
 
+    public function test_publishing_emergency_kill_switch_blocks_even_an_approved_post(): void
+    {
+        [, $post, $admin] = $this->reviewCase();
+        config(['services.facebook.driver' => 'fake', 'services.facebook.enabled' => false]);
+        $this->actingAs($admin)->post(route('review.approve', $post))->assertRedirect();
+
+        $this->post(route('review.publish', $post))->assertRedirect()->assertSessionHasErrors('review');
+        $this->assertDatabaseCount('publications', 0);
+    }
+
+    public function test_missing_source_attribution_blocks_publishing(): void
+    {
+        [, $post, $admin] = $this->reviewCase();
+        config(['services.facebook.driver' => 'fake']);
+        $this->actingAs($admin)->post(route('review.approve', $post))->assertRedirect();
+        $post->update(['source_attribution' => '']);
+
+        $this->post(route('review.publish', $post))->assertRedirect()->assertSessionHasErrors('review');
+        $this->assertDatabaseCount('publications', 0);
+    }
+
     public function test_meta_adapter_uses_configured_page_endpoint_and_keeps_token_out_of_url(): void
     {
         config(['services.facebook.graph_version' => 'v99.0', 'services.facebook.page_id' => 'page-123', 'services.facebook.page_access_token' => 'private-token']);

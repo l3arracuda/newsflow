@@ -47,7 +47,9 @@ class ThaiRathHtmlParser
             throw new SourceFetchException('parse_error', 'Could not extract enough article text.');
         }
 
-        return new ArticleDocument($title, $url, mb_substr($text, 0, 20000), $this->date($this->meta($xpath, ['article:published_time', 'datePublished'])), ['extractor' => 'thairath_html_v1']);
+        $maxChars = min(20000, max(1000, (int) config('newsflow.max_source_text_chars', 8000)));
+
+        return new ArticleDocument($title, $url, mb_substr($text, 0, $maxChars), $this->date($this->meta($xpath, ['article:published_time', 'datePublished'])), ['extractor' => 'thairath_html_v1']);
     }
 
     private function parse(string $html): array

@@ -184,3 +184,34 @@ PASS
 ## Current checkpoint
 - Branch: `dev/phase-10-scheduler-observability`
 - Phase 10 acceptance gate: PASS
+
+---
+
+## Phase 11 checkpoint — Security & Compliance Guardrails
+
+### Status
+PASS, with the operational risks below documented for production.
+
+### Delivered
+- Hardened source fetch: strict HTTPS ThaiRath host/port allowlist, rejects credentials and unsafe URL forms, disables redirect following, validates response type, applies a per-source request limit, and streams responses only up to the configured byte ceiling.
+- Capped normalized source text at 8,000 characters by default (bounded configuration maximum 20,000); the default reduces retained source content while preserving evidence for editorial review.
+- Added configurable source request/response/text limits and snapshot retention. Snapshot cleanup is dry-run by default; `--execute` is explicit and every deletion is audited.
+- Added per-user admin route throttling and production config validation for debug mode, HTTPS URL, secure session cookies, and session encryption.
+- Added a publishing kill switch (`PUBLISHING_ENABLED=false`) and tests proving it blocks even an approved post. Normal publish still requires the exact approved version, image, attribution, and source URL.
+- Confirmed source text is framed as untrusted in AI requests and added prompt-injection regression coverage. Added XSS, unsafe redirect, private-host, oversized response, MIME, rate-limit, retention, and production-config tests.
+- Created `SECURITY_REVIEW.md` with threat summary, controls, remaining risks, and a production checklist.
+
+### Tests and verification
+- Security-focused tests pass (9 tests in `SecurityHardeningTest`; prompt-injection coverage in `AiTextPipelineTest`; publishing kill-switch coverage in `ReviewApprovalTest`).
+- Full suite: 121 passed (573 assertions).
+- Pint and `npm run build`: passed; `git diff --check`: passed.
+- `composer audit --locked --no-interaction`: no security vulnerability advisories found.
+
+### Remaining risks
+- No penetration test or live Meta validation was performed. Production network egress should deny private/loopback/link-local/metadata ranges even if an allowlisted hostname has unsafe DNS resolution.
+- AI prompt controls are defense in depth, not a guarantee; humans continue to approve content.
+- External hosting, least-privilege DB/cache/queue access, backups, restore drills, and operational alert delivery remain deployment responsibilities.
+
+## Current checkpoint
+- Branch: `dev/phase-11-security-compliance`
+- Phase 11 acceptance gate: PASS for automated controls; external penetration test and live Meta publishing remain not verified.

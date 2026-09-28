@@ -24,6 +24,10 @@ class PublicationService
 
     public function publish(GeneratedPost $post, User $publisher): Publication
     {
+        if (! config('services.facebook.enabled', true)) {
+            throw new RuntimeException('การเผยแพร่ถูกปิดด้วย emergency kill switch');
+        }
+
         [$publication, $asset, $alreadyPublished] = DB::transaction(function () use ($post, $publisher) {
             $locked = GeneratedPost::query()->lockForUpdate()->with('article')->findOrFail($post->id);
             if ($locked->status !== GeneratedPostStatus::APPROVED) {
