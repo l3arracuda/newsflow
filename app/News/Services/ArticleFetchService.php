@@ -15,7 +15,7 @@ class ArticleFetchService
     public function fetch(Article $article): Article
     {
         $source = $article->source;
-        $candidate = new ArticleCandidate($article->title, $article->source_url, $article->source_published_at, $article->source_external_id);
+        $candidate = new ArticleCandidate($article->title, $article->source_url, $article->source_published_at?->toImmutable(), $article->source_external_id);
         $document = $this->adapters->for($source)->fetchArticle($source, $candidate);
         $excerpt = trim($document->text);
         $checksum = hash('sha256', $excerpt);

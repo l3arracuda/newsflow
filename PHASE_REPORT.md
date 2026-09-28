@@ -215,3 +215,42 @@ PASS, with the operational risks below documented for production.
 ## Current checkpoint
 - Branch: `dev/phase-11-security-compliance`
 - Phase 11 acceptance gate: PASS for automated controls; external penetration test and live Meta publishing remain not verified.
+
+---
+
+## Phase 12 checkpoint — E2E & Production Readiness
+
+### Status
+PASS for the automated/fake-provider acceptance criteria and production documentation. Live external integrations and deployment-owner controls remain explicitly unverified.
+
+### Delivered
+- Added `tests/Feature/NewsFlowEndToEndTest.php`: exercises the ThaiRath source adapter through a full workflow, fake image generation, admin approval, fake Facebook publishing, audit trail, and repeated-scan/repeated-publish idempotency. It asserts no real Graph API request is sent.
+- Fixed an E2E-discovered Carbon type mismatch by converting the persisted source publication timestamp to immutable Carbon before constructing the adapter DTO.
+- Added `DEPLOYMENT.md`, `OPERATIONS.md`, `BACKUP_RESTORE.md`, and `E2E_REPORT.md` with service setup, release procedure, queue/scheduler operations, incident response, private storage, backup/restore drill, manual UI smoke test, and honest live-integration limitations.
+- Confirmed configuration caching can be built and cleared; all 8 migrations are applied; scheduler lists three daily source scans plus the five-minute operations monitor; snapshot retention dry-run deleted nothing.
+- Documented that image provider failure and approval readiness are covered, but a dedicated image-failure-then-retry test is not present. Existing AI retry and uncertain-publication retry protections are covered.
+
+### Verification
+- `php artisan test`: 122 passed (599 assertions).
+- `vendor\\bin\\pint --test`: passed.
+- `npm run build`: passed.
+- `composer audit --locked --no-interaction`: no security vulnerability advisories found.
+- `git diff --check`: passed.
+- `php artisan config:cache`, followed by `php artisan config:clear`: passed.
+- `php artisan schedule:list`: expected schedules displayed.
+- `php artisan newsflow:retention:prune-snapshots`: dry run passed; 0 eligible snapshots, no data deleted.
+- `php artisan migrate:status`: all 8 migrations report Ran.
+
+### Not live verified / operator action
+- Facebook/Meta live credentials, Page permissions, app review, selected API version, and actual Page delivery: **not live verified**. Keep `PUBLISHING_ENABLED=false`, `AUTO_PUBLISH=false`, and fake publishing until owner-led staging validation is complete.
+- Paid AI/image provider connectivity, quotas/cost, production host hardening/network egress, off-site backup, restore drill, external alerts, and penetration test are not established by this test suite.
+- Manual UI smoke-test steps are in `E2E_REPORT.md` and should be performed in staging before production exposure.
+
+### Acceptance
+- Automated suite and production build pass; fake end-to-end path and duplicate safeguards pass.
+- No credentials or `.env` files are tracked in this change.
+- No merge or tag was created. Phase 12 checkpoint is committed and pushed on its own branch for review.
+
+## Current checkpoint
+- Branch: `dev/phase-12-e2e-production`
+- Phase 12 acceptance gate: PASS for automated/fake behavior and deliverables; live Meta/provider verification and external production operations remain not verified.
