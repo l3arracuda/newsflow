@@ -4,6 +4,7 @@ use App\Models\User;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schedule;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -87,3 +88,17 @@ Artisan::command('newsflow:check-environment', function () {
 
     return 0;
 })->purpose('Validate required application settings and the MySQL connection');
+
+foreach (config('newsflow.scan_times', ['08:00', '14:00', '20:00']) as $scanTime) {
+    Schedule::command('news:scan')
+        ->dailyAt($scanTime)
+        ->timezone(config('newsflow.timezone', 'Asia/Bangkok'))
+        ->withoutOverlapping(30)
+        ->onOneServer();
+}
+
+Schedule::command('newsflow:operations:monitor')
+    ->everyFiveMinutes()
+    ->timezone(config('newsflow.timezone', 'Asia/Bangkok'))
+    ->withoutOverlapping(10)
+    ->onOneServer();

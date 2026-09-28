@@ -150,3 +150,37 @@ PASS — fake provider fully tested; Meta live publishing is implemented but not
 ## Current checkpoint
 - Branch: `dev/phase-09-facebook-publisher`
 - Acceptance gate for Phase 09: PASS for automated/fake behavior; live integration remains not live verified.
+
+---
+
+## Phase 10 checkpoint — Scheduler & Observability
+
+### Status
+PASS
+
+### Delivered
+- Added `news:scan [sourceKey]` for manual scan of one source or every active source. Inactive sources are skipped. Each scan creates a source-linked-by-metadata `WorkflowRun` and audit events for start/success/failure.
+- Added three configurable daily scans (08:00, 14:00, 20:00) in `Asia/Bangkok`, with Laravel scheduler overlap locks and one-server coordination. A distributed per-source cache lock also protects manual/scheduled collisions.
+- Added a five-minute operations monitor that marks workflows running beyond the configured threshold as failed, updates a processing article to failed, writes audit history, and emits an alert.
+- Added an `OperationalAlert` abstraction with a log-backed implementation; LINE/email integrations are intentionally not wired.
+- Expanded dashboard with source scan success/failure, articles discovered and drafts created today, awaiting review, publications today, failed steps in the last 24 hours, database queue pending/failed counts, stale-run warnings, and source/queue alerts.
+- Time and thresholds are configurable through `NEWSFLOW_TIMEZONE`, `NEWSFLOW_SCAN_TIMES`, `NEWSFLOW_STALE_RUN_MINUTES`, and `NEWSFLOW_SOURCE_ALERT_MINUTES`.
+
+### Tests and verification
+- `OperationsTest`: 5 passed (26 assertions); `AdminDashboardTest`: 7 passed (66 assertions).
+- Full suite: 109 passed (534 assertions).
+- `php artisan schedule:list` displayed 08:00, 14:00, 20:00 scans and the five-minute monitor.
+- Pint check, production build, and `git diff --check`: passed.
+
+### Operator setup
+- Configure a shared cache backend for multiple schedulers, run `php artisan schedule:run` from the host scheduler every minute, and keep queue workers running (`php artisan queue:work`).
+- Manual scan examples: `php artisan news:scan` or `php artisan news:scan thairath_society`.
+- The dashboard queue counts are currently available for the database queue driver; other queue drivers show “ไม่พร้อมใช้”.
+
+### Acceptance
+- Schedule definitions, timezone, overlap protection, inactive-source skip, audit outcomes, stale handling, and metric rendering have automated tests.
+- Alerts are logged only; no external alert channel has been configured.
+
+## Current checkpoint
+- Branch: `dev/phase-10-scheduler-observability`
+- Phase 10 acceptance gate: PASS

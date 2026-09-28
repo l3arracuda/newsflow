@@ -10,12 +10,26 @@
     </x-slot>
 
     <div class="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+        @if ($operationalAlerts !== [])
+            <section aria-label="การแจ้งเตือนระบบ" class="space-y-2">
+                @foreach ($operationalAlerts as $alert)
+                    <div class="rounded-lg border {{ $alert['level'] === 'error' ? 'border-red-300 bg-red-50 text-red-900' : 'border-amber-300 bg-amber-50 text-amber-900' }} p-4 text-sm font-medium">{{ $alert['message'] }}</div>
+                @endforeach
+            </section>
+        @endif
+
         <section aria-label="สรุปสถานะข่าว" class="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
             @foreach ([['ข่าวใหม่', $counts['new'], 'text-sky-700'], ['กำลังทำงาน', $counts['processing'], 'text-blue-700'], ['รอตรวจทาน', $counts['review'], 'text-amber-700'], ['ติดธงตรวจสอบ', $counts['flagged'], 'text-red-700'], ['เผยแพร่แล้ว', $counts['published'], 'text-emerald-700'], ['ผิดพลาด', $counts['failed'], 'text-red-700'], ['เผยแพร่วันนี้', $publicationsToday, 'text-violet-700']] as [$label, $count, $color])
                 <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                     <p class="text-sm text-slate-500">{{ $label }}</p>
                     <p class="mt-2 text-3xl font-bold {{ $color }}">{{ number_format($count) }}</p>
                 </div>
+            @endforeach
+        </section>
+
+        <section aria-label="ตัวชี้วัดการปฏิบัติงาน" class="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
+            @foreach ([['ค้นพบวันนี้', $articlesDiscoveredToday], ['Draft วันนี้', $draftsGeneratedToday], ['รอตรวจทาน', $awaitingReviewCount], ['เผยแพร่วันนี้', $publicationsToday], ['ขั้นตอนล้มเหลว 24 ชม.', $failedSteps24h], ['Queue รอดำเนินการ', $queuePending], ['Queue ล้มเหลว', $queueFailed]] as [$label, $count])
+                <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><p class="text-xs text-slate-500">{{ $label }}</p><p class="mt-2 text-2xl font-bold text-slate-800">{{ $count === null ? 'ไม่พร้อมใช้' : number_format($count) }}</p></div>
             @endforeach
         </section>
 
@@ -51,13 +65,16 @@
             <section class="rounded-xl border border-slate-200 bg-white shadow-sm">
                 <div class="border-b border-slate-100 px-5 py-4"><h2 class="font-semibold text-slate-900">แหล่งข่าว</h2></div>
                 <ul class="divide-y divide-slate-100">
-                    @forelse ($sources as $source)
+                    @forelse ($sourceHealth as $health)
+                        @php($source = $health['source'])
                         <li class="px-5 py-4">
                             <div class="flex items-center justify-between gap-3">
                                 <span class="font-medium text-slate-800">{{ $source->name }}</span>
                                 <span class="text-xs text-slate-500">{{ $source->articles_count }} ข่าว</span>
                             </div>
                             <p class="mt-1 text-xs text-slate-500">สแกนสำเร็จล่าสุด: {{ $source->last_scanned_at?->format('d/m/Y H:i') ?? 'ยังไม่มีข้อมูล' }}</p>
+                            <p class="mt-1 text-xs text-slate-500">รอบสำเร็จล่าสุด: {{ $health['last_success']?->finished_at?->format('d/m/Y H:i') ?? '—' }}</p>
+                            <p class="mt-1 text-xs text-slate-500">รอบล้มเหลวล่าสุด: {{ $health['last_failure']?->finished_at?->format('d/m/Y H:i') ?? '—' }}</p>
                         </li>
                     @empty
                         <li class="px-5 py-6 text-sm text-slate-500">ยังไม่มีแหล่งข่าว</li>
@@ -77,5 +94,11 @@
                 <p class="px-5 py-5 text-sm text-slate-500">ไม่มี workflow ที่ผิดพลาด</p>
             @endforelse
         </section>
+
+        @if ($staleRunCount > 0)
+            <section class="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
+                ตรวจพบ workflow ที่เกิน {{ config('newsflow.stale_run_minutes') }} นาที จำนวน {{ $staleRunCount }} รายการ ระบบจะประเมินและแจ้งเตือนทุก 5 นาที
+            </section>
+        @endif
     </div>
 </x-app-layout>

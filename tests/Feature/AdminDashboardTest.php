@@ -51,7 +51,7 @@ class AdminDashboardTest extends TestCase
         $post->publications()->create(['channel' => 'facebook', 'provider' => 'test', 'status' => PublicationStatus::PUBLISHED, 'published_at' => now(), 'idempotency_key' => 'dashboard-publication-'.$post->id]);
 
         $response = $this->withoutVite()->actingAs(User::factory()->create(['is_admin' => true]))->get('/dashboard')->assertOk();
-        foreach (['แดชบอร์ด', $source->name, 'สแกนสำเร็จล่าสุด', 'Workflow ล่าสุด', 'Workflow ที่ผิดพลาด', 'เผยแพร่วันนี้'] as $text) {
+        foreach (['แดชบอร์ด', $source->name, 'สแกนสำเร็จล่าสุด', 'รอบสำเร็จล่าสุด', 'รอบล้มเหลวล่าสุด', 'Workflow ล่าสุด', 'Workflow ที่ผิดพลาด', 'เผยแพร่วันนี้', 'ค้นพบวันนี้', 'Draft วันนี้', 'ขั้นตอนล้มเหลว 24 ชม.', 'Queue รอดำเนินการ'] as $text) {
             $response->assertSee($text);
         }
         $response->assertSee('href="'.route('workflows.show', $run).'"', false);
